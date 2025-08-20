@@ -17,6 +17,10 @@ type Partition struct {
 	Part_s int64
 	// Part_name: Array fijo de 16 bytes para el nombre de la partición
 	Part_name [16]byte
+	// Part_correlative: Número correlativo asignado al montar la partición.
+	Part_correlative int64
+	// Part_id: ID único de 4 caracteres asignado al montar.
+	Part_id [4]byte
 }
 
 // MBR representa el Master Boot Record del disco.
@@ -57,6 +61,7 @@ func NewMBR(size int64, fit byte, signature int64) MBR {
 		mbr.Mbr_partitions[i].Part_start = -1
 		// Los demás campos (Part_type, Part_fit, Part_s, Part_name) se inicializan
 		// automáticamente con valores cero (0 para números, arrays vacíos para arrays)
+		mbr.Mbr_partitions[i].Part_correlative = -1 // Inicializar el nuevo campo
 	}
 
 	// Retorna el MBR completamente inicializado

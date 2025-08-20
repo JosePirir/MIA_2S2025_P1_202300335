@@ -39,22 +39,6 @@ func main() {
 		command := strings.ToLower(parts[0]) // Convertir a minúsculas para comparación
 		// El resto de las palabras son los argumentos y flags del comando
 		args := parts[1:] // Slice que incluye desde el índice 1 hasta el final
-		// Normalizar cada argumento a minúsculas
-		for i, arg := range args {
-			// Si es un flag tipo --X=valor
-			if strings.HasPrefix(arg, "-") {
-				parts := strings.SplitN(arg, "=", 2)
-				parts[0] = strings.ToLower(parts[0]) // nombre del flag a minúsculas
-				if len(parts) == 2 {
-					args[i] = parts[0] + "=" + parts[1] // conserva el valor tal cual
-				} else {
-					args[i] = parts[0]
-				}
-			} else {
-				// Si no es flag (ej: un path con mayúsculas), no lo tocamos
-				args[i] = arg
-			}
-		}
 
 		// Switch para determinar qué comando ejecutar
 		switch command {
@@ -92,25 +76,60 @@ func main() {
 			// Pasa los valores desreferenciados (con *) a la función
 			commands.ExecuteMkdisk(*size, *unit, *fit, *path)
 
-			case "rmdisk":
+		case "rmdisk":
+			// Crea un FlagSet específico para rmdisk.
 			rmdiskCmd := flag.NewFlagSet("rmdisk", flag.ExitOnError)
+			// Define el único parámetro que rmdisk necesita: -path.
 			path := rmdiskCmd.String("path", "", "Ruta del disco a eliminar.")
+
+			// Parsea los argumentos después del comando "rmdisk".
 			rmdiskCmd.Parse(args)
 
+			// Valida que el parámetro -path se haya proporcionado.
 			if *path == "" {
 				fmt.Println("Error: el parámetro -path es obligatorio para rmdisk.")
 				continue
 			}
+			// Ejecuta la lógica del comando rmdisk.
 			commands.ExecuteRmdisk(*path)
+		case "fdisk":
+			// Crea un FlagSet para fdisk con todos sus parámetros.
+			fdiskCmd := flag.NewFlagSet("fdisk", flag.ExitOnError)
+			size := fdiskCmd.Int64("size", 0, "Tamaño de la partición.")
+			path := fdiskCmd.String("path", "", "Ruta del disco.")
+			name := fdiskCmd.String("name", "", "Nombre de la partición.")
+			unit := fdiskCmd.String("unit", "k", "Unidad del tamaño (b/k/m).")
+			typeStr := fdiskCmd.String("type", "p", "Tipo de partición (p/e/l).")
+			fit := fdiskCmd.String("fit", "wf", "Tipo de ajuste (bf/ff/wf).")
 
+			fdiskCmd.Parse(args)
+
+			// Validar parámetros obligatorios
+			if *path == "" || *name == "" || *size <= 0 {
+				fmt.Println("Error: los parámetros -path, -name y -size son obligatorios para fdisk.")
+				continue
+			}
+
+			commands.ExecuteFdisk(*path, *name, *unit, *typeStr, *fit, *size)
+		// --- FIN DE LA MODIFICACIÓN ---
+		case "mount":
+			mountCmd := flag.NewFlagSet("mount", flag.ExitOnError)
+			path := mountCmd.String("path", "", "Ruta del disco.")
+			name := mountCmd.String("name", "", "Nombre de la partición.")
+			mountCmd.Parse(args)
+
+			if *path == "" || *name == "" {
+				fmt.Println("Error: los parámetros -path y -name son obligatorios.")
+				continue
+			}
+			commands.ExecuteMount(*path, *name)
+
+		case "mounted":
+			commands.ExecuteMounted()
 		default:
-			// Si el comando no es reconocido, mostrar mensaje de error
 			fmt.Printf("Comando '%s' no reconocido.\n", command)
 		}
-		
 	}
-
-	
 
 	// Manejo de errores del scanner
 	// scanner.Err() retorna cualquier error que haya ocurrido durante la lectura
