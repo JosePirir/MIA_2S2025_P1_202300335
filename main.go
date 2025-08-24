@@ -2,12 +2,12 @@ package main
 
 // Importaciones necesarias para el funcionamiento del programa
 import (
-	"bufio"           // Paquete para leer la entrada de usuario línea por línea de manera eficiente
-	"flag"            // Paquete para manejar flags/parámetros de línea de comandos
-	"fmt"             // Paquete para formatear e imprimir texto en consola
+	"bufio"              // Paquete para leer la entrada de usuario línea por línea de manera eficiente
+	"flag"               // Paquete para manejar flags/parámetros de línea de comandos
+	"fmt"                // Paquete para formatear e imprimir texto en consola
+	"os"                 // Paquete para interactuar con el sistema operativo (stdin, stderr, etc.)
 	"proyecto1/commands" // Importa nuestro paquete personalizado que contiene los comandos disponibles
-	"os"              // Paquete para interactuar con el sistema operativo (stdin, stderr, etc.)
-	"strings"         // Paquete para manipular y modificar cadenas de texto
+	"strings"            // Paquete para manipular y modificar cadenas de texto
 )
 
 func main() {
@@ -126,6 +126,25 @@ func main() {
 
 		case "mounted":
 			commands.ExecuteMounted()
+
+		case "mkfs":
+			// Crea un FlagSet específico para mkfs.
+			mkfsCmd := flag.NewFlagSet("mkfs", flag.ExitOnError)
+			id := mkfsCmd.String("id", "", "ID de la partición a formatear.")
+			typeStr := mkfsCmd.String("type", "full", "Tipo de formateo (full).")
+			fs := mkfsCmd.String("fs", "2fs", "Sistema de archivos (2fs).")
+
+			// Parsea los argumentos después del comando "mkfs".
+			mkfsCmd.Parse(args)
+
+			// Valida que el parámetro -id se haya proporcionado.
+			if *id == "" {
+				fmt.Println("Error: el parámetro -id es obligatorio para mkfs.")
+				continue
+			}
+			// Ejecuta la lógica del comando mkfs.
+			commands.ExecuteMkfs(*id, *typeStr, *fs)
+
 		default:
 			fmt.Printf("Comando '%s' no reconocido.\n", command)
 		}
