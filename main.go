@@ -145,6 +145,26 @@ func main() {
 			// Ejecuta la lógica del comando mkfs.
 			commands.ExecuteMkfs(*id, *typeStr, *fs)
 
+		case "login":
+			loginCmd := flag.NewFlagSet("login", flag.ExitOnError)
+			user := loginCmd.String("user", "", "Usuario que va a iniciar sesion.")
+			pass := loginCmd.String("pass", "", "Contrasenia para iniciar sesion.")
+			id := loginCmd.String("id", "", "ID de la particion en la que se va a iniciar sesion.")
+
+			loginCmd.Parse(args)
+
+			if *user == "" || *pass == "" || *id == "" {
+				fmt.Println("Error: Debes proporcionar -user, -pass y -id")
+				continue
+			}
+
+			commands.ExecuteLogin(*user, *pass, *id)
+
+		case "logout":
+			commands.ExecuteLogout()
+
+		
+
 		default:
 			fmt.Printf("Comando '%s' no reconocido.\n", command)
 		}

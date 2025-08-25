@@ -2,11 +2,11 @@ package commands
 
 import (
 	"fmt"
+	"os"
 	"proyecto1/state"   // Importamos el paquete de estado para acceder a la lista global.
 	"proyecto1/structs" // Importamos las estructuras de MBR, EBR, etc.
 	"proyecto1/utils"   // Importamos las herramientas para leer/escribir en el disco.
-	"os"
-	"strconv" // Para convertir números a texto (string).
+	"strconv"           // Para convertir números a texto (string).
 	"strings"
 )
 
@@ -82,7 +82,7 @@ func ExecuteMount(path, name string) {
 
 			// --- Actualiza la memoria ---
 			// Crea la "ficha" de la partición montada.
-			newMount := state.MountedPartition{ID: id, Path: path, Name: name, Status: '1', Letter: letter, PartNum: partNum}
+			newMount := state.MountedPartition{ID: id, Path: path, Name: name, Status: '1', Letter: letter, PartNum: partNum, Size: p.Part_s, Start: p.Part_start}
 			// La añade a la lista global.
 			state.GlobalMountedPartitions = append(state.GlobalMountedPartitions, newMount)
 
@@ -125,7 +125,7 @@ func ExecuteMount(path, name string) {
 				// --- Actualiza el disco ---
 				currentEBR.Part_status = '1' // Solo actualizamos el status en el EBR.
 				// --- Actualiza la memoria ---
-				newMount := state.MountedPartition{ID: id, Path: path, Name: name, Status: '1', Letter: letter, PartNum: partNum}
+				newMount := state.MountedPartition{ID: id, Path: path, Name: name, Status: '1', Letter: letter, PartNum: partNum, Size: currentEBR.Part_s, Start: currentEBR.Part_start}
 				state.GlobalMountedPartitions = append(state.GlobalMountedPartitions, newMount)
 
 				// Guarda el EBR modificado en su lugar.

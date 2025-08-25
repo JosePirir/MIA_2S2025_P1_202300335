@@ -28,8 +28,24 @@ hacer que que el programa no sea case sensitive
 - mount -path=/home/josepirir/Discos/Disco1.mia -name=Particion3
 - mount -path=/home/josepirir/Discos/Disco3.mia -name=Particion2
 
+## MOUNTED
+- mounted
+
 ## MKFS
 
 - mkfs -id=351A
 - mkfs -id=352A
+
+## LOGIN
+- login -user=root -pass=123 -id=351A
+
+## LOGOUT
+- logout
+
+# TEST
+- mkdisk -size=100 -unit=m -path=/home/josepirir/Discos/DiscoPrueba.mia
+- fdisk -size=50 -unit=m -path=/home/josepirir/Discos/DiscoPrueba.mia -name=Particion1 -type=p
+- mount -path=/home/josepirir/Discos/DiscoPrueba.mia -name=Particion1
+- mkfs -type=full -id=351A
+- login -user=root -pass=123 -id=351A
 
