@@ -154,7 +154,7 @@ func main() {
 			loginCmd.Parse(args)
 
 			if *user == "" || *pass == "" || *id == "" {
-				fmt.Println("Error: Debes proporcionar -user, -pass y -id")
+				fmt.Println("Error: Los parametros -user, -pass y -id son obligatorios para login.")
 				continue
 			}
 
@@ -163,7 +163,17 @@ func main() {
 		case "logout":
 			commands.ExecuteLogout()
 
-		
+		case "cat":
+			catCmd := flag.NewFlagSet("cat", flag.ExitOnError)
+			file := catCmd.String("file", "", "File que se va a leer de la particion en la que previamente ya se inicio sesion.")
+
+			catCmd.Parse(args)
+
+			if *file == "" {
+				fmt.Println("Error: El parametro -file es obligatorio para cat.")
+			}
+
+			commands.ExecuteCat(*file)
 
 		default:
 			fmt.Printf("Comando '%s' no reconocido.\n", command)

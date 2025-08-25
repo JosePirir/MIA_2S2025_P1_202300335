@@ -42,10 +42,16 @@ hacer que que el programa no sea case sensitive
 ## LOGOUT
 - logout
 
+## CAT
+- cat -file=/users.txt
+- Tomar en cuenta que file no lleva comillas de momento
+
+
+
 # TEST
 - mkdisk -size=100 -unit=m -path=/home/josepirir/Discos/DiscoPrueba.mia
 - fdisk -size=50 -unit=m -path=/home/josepirir/Discos/DiscoPrueba.mia -name=Particion1 -type=p
 - mount -path=/home/josepirir/Discos/DiscoPrueba.mia -name=Particion1
 - mkfs -type=full -id=351A
 - login -user=root -pass=123 -id=351A
-
+- cat -file=/users.txt
