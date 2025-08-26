@@ -58,3 +58,4 @@ hacer que que el programa no sea case sensitive
 - login -user=root -pass=123 -id=351A
 - cat -file=/users.txt
 - mkgrp -name=usuarios
+- rmgrp -name=usuarios

@@ -11,9 +11,9 @@ import (
 	"strings"
 )
 
-func ExecuteMkgrp(name string) {
+func ExecuteRmgrp(groupName string) {
 	if !state.CurrentSession.IsActive {
-		fmt.Println("Error: Debes iniciar sesión para usar mkgrp.")
+		fmt.Println("Error: Debes iniciar sesión para usar rmgroup.")
 		return
 	}
 
@@ -103,7 +103,7 @@ func ExecuteMkgrp(name string) {
 		}
 	}
 
-	// Leer contenido actual del archivo
+	// Leer contenido actual
 	var content strings.Builder
 	for _, blockNum := range currentInode.I_block {
 		if blockNum == -1 {
@@ -119,29 +119,35 @@ func ExecuteMkgrp(name string) {
 		content.Write(bytes.Trim(blockData, "\x00"))
 	}
 
-	// Determinar el ID siguiente
+	// Procesar líneas, marcando como eliminado
 	lines := strings.Split(content.String(), "\n")
-	maxID := 0
-	for _, line := range lines {
+	removed := false
+
+	for i, line := range lines {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
 		parts := strings.Split(line, ",")
-		if len(parts) >= 2 && parts[1] == "G" {
-			var id int
-			fmt.Sscanf(parts[0], "%d", &id)
-			if id > maxID {
-				maxID = id
+		if len(parts) >= 3 && parts[1] == "G" {
+			if parts[2] == groupName {
+				// Marcar como eliminado (ID -> 0)
+				lines[i] = fmt.Sprintf("0,G,%s", parts[2])
+				removed = true
 			}
 		}
 	}
-	newID := maxID + 1
 
-	// Agregar nueva línea
-	newLine := fmt.Sprintf("%d,G,%s\n", newID, name)
-	newContent := content.String() + newLine
+	if !removed {
+		fmt.Printf("Error: No se encontró el grupo '%s'.\n", groupName)
+		return
+	}
 
-	// Escribir de nuevo el contenido en los bloques del archivo
+	newContent := strings.Join(lines, "\n")
+	if !strings.HasSuffix(newContent, "\n") {
+		newContent += "\n"
+	}
+
+	// Escribir de nuevo en bloques
 	data := []byte(newContent)
 	offset := 0
 	for _, blockNum := range currentInode.I_block {
@@ -157,7 +163,7 @@ func ExecuteMkgrp(name string) {
 		}
 		chunk := data[offset:end]
 
-		// Rellenar con ceros si queda espacio
+		// Rellenar con ceros
 		if len(chunk) < blockSize {
 			padded := make([]byte, blockSize)
 			copy(padded, chunk)
@@ -176,5 +182,5 @@ func ExecuteMkgrp(name string) {
 		}
 	}
 
-	fmt.Printf("Grupo '%s' agregado exitosamente con ID %d en /users.txt\n", name, newID)
+	fmt.Printf("Grupo '%s' marcado como eliminado en /users.txt\n", groupName)
 }
