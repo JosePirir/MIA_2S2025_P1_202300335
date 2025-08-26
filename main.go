@@ -175,6 +175,18 @@ func main() {
 
 			commands.ExecuteCat(*file)
 
+		case "mkgrp":
+			mkgrpCmd := flag.NewFlagSet("mkgrp", flag.ExitOnError)
+			name := mkgrpCmd.String("name", "", "Nombre del grupo a crear en users.txt.")
+
+			mkgrpCmd.Parse(args)
+
+			if *name == "" {
+				fmt.Println("Error: El parametro -name es obligatorio para mkgrp")
+			}
+
+			commands.ExecuteMkgrp(*name)
+
 		default:
 			fmt.Printf("Comando '%s' no reconocido.\n", command)
 		}

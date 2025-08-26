@@ -36,16 +36,18 @@ hacer que que el programa no sea case sensitive
 - mkfs -id=351A
 - mkfs -id=352A
 
+## CAT
+- cat -file=/users.txt
+- Tomar en cuenta que file no lleva comillas de momento
+
 ## LOGIN
 - login -user=root -pass=123 -id=351A
 
 ## LOGOUT
 - logout
 
-## CAT
-- cat -file=/users.txt
-- Tomar en cuenta que file no lleva comillas de momento
-
+## MKGRP
+- mkgrp -name=usuarios
 
 
 # TEST
@@ -55,3 +57,4 @@ hacer que que el programa no sea case sensitive
 - mkfs -type=full -id=351A
 - login -user=root -pass=123 -id=351A
 - cat -file=/users.txt
+- mkgrp -name=usuarios
