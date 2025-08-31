@@ -1,14 +1,14 @@
 package commands
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
-	"io"
 	"os"
+	"strings"
+	"encoding/binary"
+
+	"proyecto1/fs"
 	"proyecto1/state"
 	"proyecto1/structs"
-	"strings"
 )
 
 func ExecuteMkgrp(name string) {
@@ -44,83 +44,33 @@ func ExecuteMkgrp(name string) {
 
 	// Leer superbloque
 	var sb structs.Superblock
-	file.Seek(mountedPartition.Start, 0)
+	_, err = file.Seek(mountedPartition.Start, 0)
+	if err != nil {
+		fmt.Println("Error al posicionar en superbloque:", err)
+		return
+	}
 	if err := binary.Read(file, binary.BigEndian, &sb); err != nil {
 		fmt.Println("Error al leer el superbloque:", err)
 		return
 	}
 
-	// Leer inodo raíz
-	var currentInode structs.Inode
-	file.Seek(int64(sb.S_inode_start), 0)
-	if err := binary.Read(file, binary.BigEndian, &currentInode); err != nil {
-		fmt.Println("Error al leer el inodo raíz:", err)
+	// Buscar el inodo del archivo /users.txt
+	inode, inodeIndex, err := fs.FindInodeByPath(file, sb, "/users.txt")
+	if err != nil {
+		fmt.Println("Error:", err)
 		return
 	}
 
-	// Buscar el inodo del archivo /users.txt
-	path := "/users.txt"
-	parts := strings.Split(path, "/")
-	for i := 1; i < len(parts); i++ {
-		name := parts[i]
-		if name == "" {
-			continue
-		}
-
-		found := false
-		for _, blockNum := range currentInode.I_block {
-			if blockNum == -1 {
-				continue
-			}
-			blockPos := int64(sb.S_block_start) + int64(blockNum)*int64(sb.S_block_size)
-			var folderBlock structs.FolderBlock
-			file.Seek(blockPos, 0)
-			if err := binary.Read(file, binary.BigEndian, &folderBlock); err != nil {
-				fmt.Println("Error al leer bloque de carpeta:", err)
-				return
-			}
-
-			for _, entry := range folderBlock.B_content {
-				entryName := string(bytes.Trim(entry.B_name[:], "\x00"))
-				if entryName == name {
-					file.Seek(int64(sb.S_inode_start)+int64(entry.B_inodo)*int64(sb.S_inode_size), 0)
-					if err := binary.Read(file, binary.BigEndian, &currentInode); err != nil {
-						fmt.Println("Error al leer inodo:", err)
-						return
-					}
-					found = true
-					break
-				}
-			}
-			if found {
-				break
-			}
-		}
-
-		if !found {
-			fmt.Printf("Error: No se encontró '%s' en la ruta.\n", name)
-			return
-		}
+	// Leer contenido actual
+	contentBytes, err := fs.ReadFileContent(file, sb, inode)
+	if err != nil {
+		fmt.Println("Error al leer /users.txt:", err)
+		return
 	}
-
-	// Leer contenido actual del archivo
-	var content strings.Builder
-	for _, blockNum := range currentInode.I_block {
-		if blockNum == -1 {
-			continue
-		}
-		blockPos := int64(sb.S_block_start) + int64(blockNum)*int64(sb.S_block_size)
-		blockData := make([]byte, sb.S_block_size)
-		file.Seek(blockPos, 0)
-		if _, err := io.ReadFull(file, blockData); err != nil {
-			fmt.Println("Error al leer bloque del archivo:", err)
-			return
-		}
-		content.Write(bytes.Trim(blockData, "\x00"))
-	}
+	content := string(contentBytes)
 
 	// Validar si el grupo ya existe
-	lines := strings.Split(content.String(), "\n")
+	lines := strings.Split(content, "\n")
 	maxID := 0
 	for _, line := range lines {
 		if strings.TrimSpace(line) == "" {
@@ -133,7 +83,6 @@ func ExecuteMkgrp(name string) {
 			if id > maxID {
 				maxID = id
 			}
-			// Validar nombre de grupo existente (id != 0 significa activo)
 			if parts[2] == name && parts[0] != "0" {
 				fmt.Printf("Error: El grupo '%s' ya existe.\n", name)
 				return
@@ -143,44 +92,53 @@ func ExecuteMkgrp(name string) {
 
 	// Generar ID nuevo
 	newID := maxID + 1
-
-	// Agregar nueva línea
 	newLine := fmt.Sprintf("%d,G,%s\n", newID, name)
-	newContent := content.String() + newLine
-
-	// Escribir de nuevo el contenido en los bloques del archivo
+	newContent := content + newLine
 	data := []byte(newContent)
-	offset := 0
-	for _, blockNum := range currentInode.I_block {
-		if blockNum == -1 {
-			continue
-		}
-		blockPos := int64(sb.S_block_start) + int64(blockNum)*int64(sb.S_block_size)
-		blockSize := int(sb.S_block_size)
 
+	// Guardar el nuevo contenido en bloques
+	blockSize := int(sb.S_block_size)
+	offset := 0
+	for i := 0; i < 12 && offset < len(data); i++ {
+		if inode.I_block[i] == -1 {
+			// No hay bloque asignado → pedir uno nuevo
+			freeBlock, err := fs.FindFreeBlock(file, sb)
+			if err != nil {
+				fmt.Println("Error: no hay bloques disponibles")
+				return
+			}
+			err = fs.MarkBlockAsUsed(file, sb, freeBlock)
+			if err != nil {
+				fmt.Println("Error al marcar bloque como usado:", err)
+				return
+			}
+			inode.I_block[i] = freeBlock
+		}
+
+		// Crear bloque con los siguientes datos
+		var block structs.FileBlock
 		end := offset + blockSize
 		if end > len(data) {
 			end = len(data)
 		}
-		chunk := data[offset:end]
+		copy(block.B_content[:], data[offset:end])
 
-		// Rellenar con ceros si queda espacio
-		if len(chunk) < blockSize {
-			padded := make([]byte, blockSize)
-			copy(padded, chunk)
-			chunk = padded
-		}
-
-		file.Seek(blockPos, 0)
-		if _, err := file.Write(chunk); err != nil {
+		// Guardar bloque en disco
+		err = fs.WriteFileBlock(file, sb, inode.I_block[i], block)
+		if err != nil {
 			fmt.Println("Error al escribir bloque:", err)
 			return
 		}
 
-		offset += blockSize
-		if offset >= len(data) {
-			break
-		}
+		offset = end
+	}
+
+	// Actualizar tamaño del archivo en el inodo
+	inode.I_size = int32(len(data))
+	err = fs.WriteInode(file, sb, inodeIndex, inode)
+	if err != nil {
+		fmt.Println("Error al actualizar inodo:", err)
+		return
 	}
 
 	fmt.Printf("Grupo '%s' agregado exitosamente con ID %d en /users.txt\n", name, newID)

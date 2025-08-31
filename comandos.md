@@ -67,6 +67,6 @@ hacer que que el programa no sea case sensitive
 - cat -file=/users.txt
 - mkgrp -name=usuarios
 - rmgrp -name=usuarios
-- mkusr -user=jose5 -pass=1234 -grp=usuarios
+- mkusr -user=adri -pass=1234 -grp=usuarios
 - rmusr -user=jose
 - chgrp -user=root -grp=prueba

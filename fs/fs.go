@@ -106,3 +106,59 @@ func ReadFolderBlock(file *os.File, sb structs.Superblock, index int32) (structs
 	err := binary.Read(file, binary.BigEndian, &block)
 	return block, err
 }
+// WriteInode guarda un inodo en disco en una posición específica
+func WriteInode(file *os.File, sb structs.Superblock, index int32, inode structs.Inode) error {
+    offset := int64(sb.S_inode_start) + int64(index)*int64(sb.S_inode_size)
+    file.Seek(offset, 0)
+    return binary.Write(file, binary.BigEndian, &inode)
+}
+
+// WriteFileBlock guarda un bloque de archivo en disco
+func WriteFileBlock(file *os.File, sb structs.Superblock, index int32, block structs.FileBlock) error {
+    offset := int64(sb.S_block_start) + int64(index)*int64(sb.S_block_size)
+    file.Seek(offset, 0)
+    return binary.Write(file, binary.BigEndian, &block)
+}
+// FindFreeBlock busca el primer bloque libre en el bitmap
+// Busca primer bloque libre (byte 0)
+func FindFreeBlock(file *os.File, sb structs.Superblock) (int32, error) {
+    bitmap := make([]byte, sb.S_blocks_count)
+    if _, err := file.ReadAt(bitmap, int64(sb.S_bm_block_start)); err != nil {
+        return -1, err
+    }
+    for i := int32(0); i < sb.S_blocks_count; i++ {
+        if bitmap[i] == 0 { // 0 = libre
+            return i, nil
+        }
+    }
+    return -1, errors.New("no hay bloques libres disponibles")
+}
+
+// MarkBlockAsUsed marca un bloque en el bitmap como ocupado
+func MarkBlockAsUsed(file *os.File, sb structs.Superblock, index int32) error {
+    _, err := file.WriteAt([]byte{1}, int64(sb.S_bm_block_start)+int64(index))
+    return err
+}
+
+func MarkBlockAsFree(file *os.File, sb structs.Superblock, index int32) error {
+    _, err := file.WriteAt([]byte{0}, int64(sb.S_bm_block_start)+int64(index))
+    return err
+}
+
+func FindFreeInode(file *os.File, sb structs.Superblock) (int32, error) {
+    bitmap := make([]byte, sb.S_inodes_count)
+    if _, err := file.ReadAt(bitmap, int64(sb.S_bm_inode_start)); err != nil {
+        return -1, err
+    }
+    for i := int32(0); i < sb.S_inodes_count; i++ {
+        if bitmap[i] == 0 {
+            return i, nil
+        }
+    }
+    return -1, errors.New("no hay inodos libres disponibles")
+}
+
+func MarkInodeAsUsed(file *os.File, sb structs.Superblock, index int32) error {
+    _, err := file.WriteAt([]byte{1}, int64(sb.S_bm_inode_start)+int64(index))
+    return err
+}

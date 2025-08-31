@@ -1,14 +1,14 @@
 package commands
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
-	"io"
 	"os"
+	"strings"
+	"encoding/binary"
+
+	"proyecto1/fs"
 	"proyecto1/state"
 	"proyecto1/structs"
-	"strings"
 )
 
 func ExecuteMkusr(user, password, group string) {
@@ -50,77 +50,23 @@ func ExecuteMkusr(user, password, group string) {
 		return
 	}
 
-	// Leer inodo raíz
-	var currentInode structs.Inode
-	file.Seek(int64(sb.S_inode_start), 0)
-	if err := binary.Read(file, binary.BigEndian, &currentInode); err != nil {
-		fmt.Println("Error al leer el inodo raíz:", err)
+	// Buscar inodo de /users.txt
+	inode, inodeIndex, err := fs.FindInodeByPath(file, sb, "/users.txt")
+	if err != nil {
+		fmt.Println("Error:", err)
 		return
 	}
 
-	// Buscar el inodo de /users.txt
-	path := "/users.txt"
-	parts := strings.Split(path, "/")
-	for i := 1; i < len(parts); i++ {
-		name := parts[i]
-		if name == "" {
-			continue
-		}
-
-		found := false
-		for _, blockNum := range currentInode.I_block {
-			if blockNum == -1 {
-				continue
-			}
-			blockPos := int64(sb.S_block_start) + int64(blockNum)*int64(sb.S_block_size)
-			var folderBlock structs.FolderBlock
-			file.Seek(blockPos, 0)
-			if err := binary.Read(file, binary.BigEndian, &folderBlock); err != nil {
-				fmt.Println("Error al leer bloque de carpeta:", err)
-				return
-			}
-
-			for _, entry := range folderBlock.B_content {
-				entryName := string(bytes.Trim(entry.B_name[:], "\x00"))
-				if entryName == name {
-					file.Seek(int64(sb.S_inode_start)+int64(entry.B_inodo)*int64(sb.S_inode_size), 0)
-					if err := binary.Read(file, binary.BigEndian, &currentInode); err != nil {
-						fmt.Println("Error al leer inodo:", err)
-						return
-					}
-					found = true
-					break
-				}
-			}
-			if found {
-				break
-			}
-		}
-
-		if !found {
-			fmt.Printf("Error: No se encontró '%s' en la ruta.\n", name)
-			return
-		}
+	// Leer contenido actual
+	contentBytes, err := fs.ReadFileContent(file, sb, inode)
+	if err != nil {
+		fmt.Println("Error al leer /users.txt:", err)
+		return
 	}
+	content := string(contentBytes)
 
-	// Leer contenido actual de /users.txt
-	var content strings.Builder
-	for _, blockNum := range currentInode.I_block {
-		if blockNum == -1 {
-			continue
-		}
-		blockPos := int64(sb.S_block_start) + int64(blockNum)*int64(sb.S_block_size)
-		blockData := make([]byte, sb.S_block_size)
-		file.Seek(blockPos, 0)
-		if _, err := io.ReadFull(file, blockData); err != nil {
-			fmt.Println("Error al leer bloque del archivo:", err)
-			return
-		}
-		content.Write(bytes.Trim(blockData, "\x00"))
-	}
-
-	// Validaciones de grupo y usuario
-	lines := strings.Split(content.String(), "\n")
+	// Validar existencia del grupo y si el usuario ya existe
+	lines := strings.Split(content, "\n")
 	groupExists := false
 	maxUID := 0
 
@@ -132,13 +78,9 @@ func ExecuteMkusr(user, password, group string) {
 		if len(parts) < 2 {
 			continue
 		}
-
-		if parts[1] == "G" {
-			if parts[2] == group && parts[0] != "0" {
-				groupExists = true
-			}
+		if parts[1] == "G" && parts[2] == group && parts[0] != "0" {
+			groupExists = true
 		}
-
 		if parts[1] == "U" {
 			var uid int
 			fmt.Sscanf(parts[0], "%d", &uid)
@@ -159,42 +101,48 @@ func ExecuteMkusr(user, password, group string) {
 
 	// Nuevo UID
 	newUID := maxUID + 1
-
-	// Nueva línea
 	newLine := fmt.Sprintf("%d,U,%s,%s,%s\n", newUID, group, user, password)
-	newContent := content.String() + newLine
-
-	// ⚡ Importante: limpiar bloques antes de escribir
+	newContent := content + newLine
 	data := []byte(newContent)
+
+	// Guardar en bloques (pidiendo nuevos si hacen falta)
 	offset := 0
-	for _, blockNum := range currentInode.I_block {
-		if blockNum == -1 {
-			continue
+	blockSize := int(sb.S_block_size)
+	for i := 0; i < len(inode.I_block) && offset < len(data); i++ {
+		if inode.I_block[i] == -1 {
+			freeBlock, err := fs.FindFreeBlock(file, sb)
+			if err != nil {
+				fmt.Println("Error: no hay bloques disponibles")
+				return
+			}
+			if err := fs.MarkBlockAsUsed(file, sb, freeBlock); err != nil {
+				fmt.Println("Error al marcar bloque como usado:", err)
+				return
+			}
+			inode.I_block[i] = freeBlock
 		}
 
-		blockPos := int64(sb.S_block_start) + int64(blockNum)*int64(sb.S_block_size)
-		blockSize := int(sb.S_block_size)
-
-		// Tomamos un pedazo del contenido
 		end := offset + blockSize
 		if end > len(data) {
 			end = len(data)
 		}
-		chunk := data[offset:end]
 
-		// Rellenamos siempre a blockSize (limpiamos basura anterior)
-		padded := make([]byte, blockSize)
-		copy(padded, chunk)
-
-		file.Seek(blockPos, 0)
-		if _, err := file.Write(padded); err != nil {
+		var block structs.FileBlock
+		copy(block.B_content[:], data[offset:end])
+		if err := fs.WriteFileBlock(file, sb, inode.I_block[i], block); err != nil {
 			fmt.Println("Error al escribir bloque:", err)
 			return
 		}
 
-		offset += blockSize
+		offset = end
+	}
+
+	// Actualizar tamaño del archivo en el inodo
+	inode.I_size = int32(len(data))
+	if err := fs.WriteInode(file, sb, inodeIndex, inode); err != nil {
+		fmt.Println("Error al actualizar inodo:", err)
+		return
 	}
 
 	fmt.Printf("Usuario '%s' creado exitosamente con UID %d en el grupo '%s'\n", user, newUID, group)
 }
-
