@@ -11,14 +11,14 @@ import (
 	"strings"
 )
 
-func ExecuteRmgrp(groupName string) {
+func ExecuteMkusr(user, password, group string) {
 	if !state.CurrentSession.IsActive {
-		fmt.Println("Error: Debes iniciar sesión para usar rmgroup.")
+		fmt.Println("Error: Debes iniciar sesión para usar mkusr.")
 		return
 	}
 
 	if state.CurrentSession.User != "root" {
-		fmt.Println("Error: Debes iniciar sesión con un usuario para usar mkgrp.")
+		fmt.Println("Error: Solo el usuario root puede usar mkusr.")
 		return
 	}
 
@@ -58,7 +58,7 @@ func ExecuteRmgrp(groupName string) {
 		return
 	}
 
-	// Buscar el inodo del archivo /users.txt
+	// Buscar el inodo de /users.txt
 	path := "/users.txt"
 	parts := strings.Split(path, "/")
 	for i := 1; i < len(parts); i++ {
@@ -103,7 +103,7 @@ func ExecuteRmgrp(groupName string) {
 		}
 	}
 
-	// Leer contenido actual
+	// Leer contenido actual de /users.txt
 	var content strings.Builder
 	for _, blockNum := range currentInode.I_block {
 		if blockNum == -1 {
@@ -119,79 +119,82 @@ func ExecuteRmgrp(groupName string) {
 		content.Write(bytes.Trim(blockData, "\x00"))
 	}
 
-	// Procesar líneas, verificando si ya estaba eliminado
+	// Validaciones de grupo y usuario
 	lines := strings.Split(content.String(), "\n")
-	removed := false
-	alreadyRemoved := false
+	groupExists := false
+	maxUID := 0
 
-	for i, line := range lines {
+	for _, line := range lines {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
 		parts := strings.Split(line, ",")
-		if len(parts) >= 3 && parts[1] == "G" {
-			if parts[2] == groupName {
-				if parts[0] == "0" {
-					alreadyRemoved = true
-					break
-				}
-				// Marcar como eliminado (ID -> 0)
-				lines[i] = fmt.Sprintf("0,G,%s", parts[2])
-				removed = true
-				break
+		if len(parts) < 2 {
+			continue
+		}
+
+		if parts[1] == "G" {
+			if parts[2] == group && parts[0] != "0" {
+				groupExists = true
+			}
+		}
+
+		if parts[1] == "U" {
+			var uid int
+			fmt.Sscanf(parts[0], "%d", &uid)
+			if uid > maxUID {
+				maxUID = uid
+			}
+			if parts[3] == user && parts[0] != "0" {
+				fmt.Printf("Error: El usuario '%s' ya existe.\n", user)
+				return
 			}
 		}
 	}
 
-	if alreadyRemoved {
-		fmt.Printf("Aviso: El grupo '%s' ya estaba eliminado.\n", groupName)
+	if !groupExists {
+		fmt.Printf("Error: El grupo '%s' no existe.\n", group)
 		return
 	}
 
-	if !removed {
-		fmt.Printf("Error: No se encontró el grupo '%s'.\n", groupName)
-		return
-	}
+	// Nuevo UID
+	newUID := maxUID + 1
 
-	newContent := strings.Join(lines, "\n")
-	if !strings.HasSuffix(newContent, "\n") {
-		newContent += "\n"
-	}
+	// Nueva línea
+	newLine := fmt.Sprintf("%d,U,%s,%s,%s\n", newUID, group, user, password)
+	newContent := content.String() + newLine
 
-	// Escribir de nuevo en bloques
+	// ⚡ Importante: limpiar bloques antes de escribir
 	data := []byte(newContent)
 	offset := 0
 	for _, blockNum := range currentInode.I_block {
 		if blockNum == -1 {
 			continue
 		}
+
 		blockPos := int64(sb.S_block_start) + int64(blockNum)*int64(sb.S_block_size)
 		blockSize := int(sb.S_block_size)
 
+		// Tomamos un pedazo del contenido
 		end := offset + blockSize
 		if end > len(data) {
 			end = len(data)
 		}
 		chunk := data[offset:end]
 
-		// Rellenar con ceros
-		if len(chunk) < blockSize {
-			padded := make([]byte, blockSize)
-			copy(padded, chunk)
-			chunk = padded
-		}
+		// Rellenamos siempre a blockSize (limpiamos basura anterior)
+		padded := make([]byte, blockSize)
+		copy(padded, chunk)
 
 		file.Seek(blockPos, 0)
-		if _, err := file.Write(chunk); err != nil {
+		if _, err := file.Write(padded); err != nil {
 			fmt.Println("Error al escribir bloque:", err)
 			return
 		}
 
 		offset += blockSize
-		if offset >= len(data) {
-			break
-		}
 	}
 
-	fmt.Printf("Grupo '%s' marcado como eliminado en /users.txt\n", groupName)
+	fmt.Printf("Usuario '%s' creado exitosamente con UID %d en el grupo '%s'\n", user, newUID, group)
 }
+

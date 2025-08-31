@@ -11,14 +11,14 @@ import (
 	"strings"
 )
 
-func ExecuteRmgrp(groupName string) {
+func ExecuteChgrp(user, newGroup string) {
 	if !state.CurrentSession.IsActive {
-		fmt.Println("Error: Debes iniciar sesión para usar rmgroup.")
+		fmt.Println("Error: Debes iniciar sesión para usar changeUser.")
 		return
 	}
 
 	if state.CurrentSession.User != "root" {
-		fmt.Println("Error: Debes iniciar sesión con un usuario para usar mkgrp.")
+		fmt.Println("Error: Solo el usuario root puede usar changeUser.")
 		return
 	}
 
@@ -58,7 +58,7 @@ func ExecuteRmgrp(groupName string) {
 		return
 	}
 
-	// Buscar el inodo del archivo /users.txt
+	// Buscar el inodo de /users.txt
 	path := "/users.txt"
 	parts := strings.Split(path, "/")
 	for i := 1; i < len(parts); i++ {
@@ -103,7 +103,7 @@ func ExecuteRmgrp(groupName string) {
 		}
 	}
 
-	// Leer contenido actual
+	// Leer contenido actual de /users.txt
 	var content strings.Builder
 	for _, blockNum := range currentInode.I_block {
 		if blockNum == -1 {
@@ -119,46 +119,55 @@ func ExecuteRmgrp(groupName string) {
 		content.Write(bytes.Trim(blockData, "\x00"))
 	}
 
-	// Procesar líneas, verificando si ya estaba eliminado
+	// Procesar líneas
 	lines := strings.Split(content.String(), "\n")
-	removed := false
-	alreadyRemoved := false
+	userFound := false
+	groupExists := false
 
+	// Verificar que el grupo existe
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		parts := strings.Split(line, ",")
+		if len(parts) >= 3 && parts[1] == "G" && parts[2] == newGroup && parts[0] != "0" {
+			groupExists = true
+			break
+		}
+	}
+
+	if !groupExists {
+		fmt.Printf("Error: El grupo '%s' no existe.\n", newGroup)
+		return
+	}
+
+	// Modificar el grupo del usuario
 	for i, line := range lines {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
 		parts := strings.Split(line, ",")
-		if len(parts) >= 3 && parts[1] == "G" {
-			if parts[2] == groupName {
-				if parts[0] == "0" {
-					alreadyRemoved = true
-					break
-				}
-				// Marcar como eliminado (ID -> 0)
-				lines[i] = fmt.Sprintf("0,G,%s", parts[2])
-				removed = true
-				break
+		if len(parts) >= 4 && parts[1] == "U" && parts[3] == user {
+			if parts[0] == "0" {
+				fmt.Printf("Error: El usuario '%s' está eliminado.\n", user)
+				return
 			}
+			parts[2] = newGroup // cambiar grupo
+			lines[i] = strings.Join(parts, ",")
+			userFound = true
+			break
 		}
 	}
 
-	if alreadyRemoved {
-		fmt.Printf("Aviso: El grupo '%s' ya estaba eliminado.\n", groupName)
+	if !userFound {
+		fmt.Printf("Error: El usuario '%s' no existe.\n", user)
 		return
 	}
 
-	if !removed {
-		fmt.Printf("Error: No se encontró el grupo '%s'.\n", groupName)
-		return
-	}
-
+	// Nuevo contenido
 	newContent := strings.Join(lines, "\n")
-	if !strings.HasSuffix(newContent, "\n") {
-		newContent += "\n"
-	}
 
-	// Escribir de nuevo en bloques
+	// Escribir de nuevo
 	data := []byte(newContent)
 	offset := 0
 	for _, blockNum := range currentInode.I_block {
@@ -193,5 +202,5 @@ func ExecuteRmgrp(groupName string) {
 		}
 	}
 
-	fmt.Printf("Grupo '%s' marcado como eliminado en /users.txt\n", groupName)
+	fmt.Printf("Usuario '%s' cambiado exitosamente al grupo '%s'.\n", user, newGroup)
 }

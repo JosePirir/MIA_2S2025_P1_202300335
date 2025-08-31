@@ -171,6 +171,7 @@ func main() {
 
 			if *file == "" {
 				fmt.Println("Error: El parametro -file es obligatorio para cat.")
+				continue
 			}
 
 			commands.ExecuteCat(*file)
@@ -183,6 +184,7 @@ func main() {
 
 			if *name == "" {
 				fmt.Println("Error: El parametro -name es obligatorio para mkgrp")
+				continue
 			}
 
 			commands.ExecuteMkgrp(*name)
@@ -195,9 +197,52 @@ func main() {
 
 			if *name == "" {
 				fmt.Println("Error: El parametro -name es obligatorio para mkgrp")
+				continue
 			}
 
 			commands.ExecuteRmgrp(*name)
+
+		case "mkusr":
+			mkusrCmd := flag.NewFlagSet("mkusr", flag.ExitOnError)
+			user := mkusrCmd.String("user", "", "Nombre del usuario a crear.")
+			pass := mkusrCmd.String("pass", "", "Contrasenia del usuario a crear.")
+			grp := mkusrCmd.String("grp", "", "Grupo que sera el usuario.")
+
+			mkusrCmd.Parse(args)
+
+			if *user == "" || *pass == "" || *grp == "" {
+				fmt.Println("Error: Los parametros -user, -pass y -grp son obligatorios para mkusr.")
+				continue
+			}
+
+			commands.ExecuteMkusr(*user, *pass, *grp)
+
+		case "rmusr":
+			rmuserCmd := flag.NewFlagSet("rmusr", flag.ExitOnError)
+			user := rmuserCmd.String("user", "", "Nombre del usuario a eliminar.")
+
+			rmuserCmd.Parse(args)
+
+			if *user=="" {
+				fmt.Println("Error: El parametro -user es obligatorio para rmusr")
+				continue
+			}
+
+			commands.ExecuteRmusr(*user)
+
+		case "chgrp":
+			chgrpCmd := flag.NewFlagSet("chgrp", flag.ExitOnError)
+			user := chgrpCmd.String("user", "", "Nombre del usuario a cambiar de grupo.")
+			grp := chgrpCmd.String("grp", "", "Grupo al que se cambiara el usuario.")
+
+			chgrpCmd.Parse(args)
+
+			if *user=="" || *grp=="" {
+				fmt.Println("Error: El parametro user y grp son obligatorios para chgrp")
+				continue
+			}
+
+			commands.ExecuteChgrp(*user, *grp)
 
 		default:
 			fmt.Printf("Comando '%s' no reconocido.\n", command)

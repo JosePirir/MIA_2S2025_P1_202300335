@@ -49,6 +49,14 @@ hacer que que el programa no sea case sensitive
 ## MKGRP
 - mkgrp -name=usuarios
 
+## RMGRP
+- rmgrp -name=usuarios
+
+## MKUSR
+- mkusr -user=jose -pass=123 -grp=usuarios
+
+## RMUSR
+- rmusr -user=jose
 
 # TEST
 - mkdisk -size=100 -unit=m -path=/home/josepirir/Discos/DiscoPrueba.mia
@@ -59,3 +67,6 @@ hacer que que el programa no sea case sensitive
 - cat -file=/users.txt
 - mkgrp -name=usuarios
 - rmgrp -name=usuarios
+- mkusr -user=jose5 -pass=1234 -grp=usuarios
+- rmusr -user=jose
+- chgrp -user=root -grp=prueba

@@ -18,7 +18,7 @@ func ExecuteMkgrp(name string) {
 	}
 
 	if state.CurrentSession.User != "root" {
-		fmt.Println("Error: Debes iniciar sesión con un usuario para usar mkgrp.")
+		fmt.Println("Error: Solo el usuario root puede usar mkgrp.")
 		return
 	}
 
@@ -119,7 +119,7 @@ func ExecuteMkgrp(name string) {
 		content.Write(bytes.Trim(blockData, "\x00"))
 	}
 
-	// Determinar el ID siguiente
+	// Validar si el grupo ya existe
 	lines := strings.Split(content.String(), "\n")
 	maxID := 0
 	for _, line := range lines {
@@ -127,14 +127,21 @@ func ExecuteMkgrp(name string) {
 			continue
 		}
 		parts := strings.Split(line, ",")
-		if len(parts) >= 2 && parts[1] == "G" {
+		if len(parts) >= 3 && parts[1] == "G" {
 			var id int
 			fmt.Sscanf(parts[0], "%d", &id)
 			if id > maxID {
 				maxID = id
 			}
+			// Validar nombre de grupo existente (id != 0 significa activo)
+			if parts[2] == name && parts[0] != "0" {
+				fmt.Printf("Error: El grupo '%s' ya existe.\n", name)
+				return
+			}
 		}
 	}
+
+	// Generar ID nuevo
 	newID := maxID + 1
 
 	// Agregar nueva línea
