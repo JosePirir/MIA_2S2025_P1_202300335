@@ -1,47 +1,69 @@
-package main
+package analyzer
 
-// Importaciones necesarias para el funcionamiento del programa
 import (
-	"bufio" // Paquete para leer la entrada de usuario línea por línea de manera eficiente
-	"flag"  // Paquete para manejar flags/parámetros de línea de comandos
-	"fmt"   // Paquete para formatear e imprimir texto en consola
-	"os"    // Paquete para interactuar con el sistema operativo (stdin, stderr, etc.)
-	//"path"
-	"proyecto1/commands" // Importa nuestro paquete personalizado que contiene los comandos disponibles
-	"strings"            // Paquete para manipular y modificar cadenas de texto
+	"bufio"
+	"flag"
+	"fmt"
+	"proyecto1/commands"
+	"io"
+	"os"
+	"strings"
 )
 
-func main() {
-	// bufio.Scanner lee línea por línea
-	scanner := bufio.NewScanner(os.Stdin)
+// ProcessCommands recibe un string con comandos y los procesa línea por línea
+// Devuelve la salida completa como string
+func ProcessCommands(input string) string {
+	var outputBuilder strings.Builder
+	scanner := bufio.NewScanner(strings.NewReader(input))
 
-	// Bucle infinito para mantener el programa en ejecución hasta que el usuario decida salir
-	for {
-		fmt.Print("> ")
-		if !scanner.Scan() {
-			break // Si no puede leer (EOF o error), sale del bucle
-		}
-		// Obtiene el texto de la línea leída, sin el carácter de nueva línea
+	for scanner.Scan() {
 		line := scanner.Text()
-		// Verifica si el usuario quiere salir del programa
-		// strings.ToLower() convierte a minúsculas para hacer la comparación insensible a mayúsculas
+
+		// Ignora líneas vacías
+		if strings.TrimSpace(line) == "" {
+			
+		}
+
+		// Si es un comentario, ignorarlo
+		if strings.HasPrefix(strings.TrimSpace(line), "#") {
+			
+		}
+
+		// Procesa la línea de comando actual
+		outputBuilder.WriteString(fmt.Sprintf("> %s\n", line))
+
+		// Si el usuario quiere salir, retornamos inmediatamente
 		if strings.ToLower(line) == "exit" {
-			fmt.Println("Saliendo...")
-			break // Termina el bucle y por tanto el programa
-		}
-		// strings.Fields() es más robusto que strings.Split() porque maneja múltiples espacios
-		parts := strings.Fields(line)
-		// Si el usuario solo presionó Enter (línea vacía), no hay nada que procesar
-		if len(parts) == 0 {
-			continue // Vuelve al inicio del bucle para mostrar el prompt nuevamente
+			outputBuilder.WriteString("Saliendo...\n")
+			
 		}
 
-		// La primera palabra siempre es el comando a ejecutar
-		command := strings.ToLower(parts[0]) // Convertir a minúsculas para comparación
-		// El resto de las palabras son los argumentos y flags del comando
-		args := parts[1:] // Slice que incluye desde el índice 1 hasta el final
+		// Ejecuta el comando y captura su salida
+		output := executeCommand(line)
+		outputBuilder.WriteString(output)
+		outputBuilder.WriteString("\n")
+	}
 
-		// Switch para determinar qué comando ejecutar
+	return outputBuilder.String()
+}
+
+func executeCommand(commandLine string) string {
+	// Divide la línea en partes (comando y argumentos)
+	parts := strings.Fields(commandLine)
+	if len(parts) == 0 {
+		return ""
+	}
+
+	// La primera palabra es el comando
+	command := strings.ToLower(parts[0])
+	args := parts[1:]
+
+	// Guarda stdout original para restaurarlo después
+	oldStdout := os.Stdout
+
+	// Crea un pipe para capturar stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
 		switch command {
 		case "mkdisk":
 			// Crear un nuevo conjunto de flags específico para el comando mkdisk
@@ -64,13 +86,13 @@ func main() {
 			// *path desreferencia el puntero para obtener el valor real
 			if *path == "" {
 				fmt.Println("Error: el parámetro -path es obligatorio para mkdisk.")
-				continue // Vuelve al inicio del bucle sin ejecutar el comando
+				 // Vuelve al inicio del bucle sin ejecutar el comando
 			}
 
 			// El parámetro size debe ser positivo y mayor que cero
 			if *size <= 0 {
 				fmt.Println("Error: el parámetro -size es obligatorio y debe ser positivo.")
-				continue // Vuelve al inicio del bucle sin ejecutar el comando
+				 // Vuelve al inicio del bucle sin ejecutar el comando
 			}
 
 			// Si todas las validaciones pasan, ejecuta el comando mkdisk
@@ -89,7 +111,7 @@ func main() {
 			// Valida que el parámetro -path se haya proporcionado.
 			if *path == "" {
 				fmt.Println("Error: el parámetro -path es obligatorio para rmdisk.")
-				continue
+				
 			}
 			// Ejecuta la lógica del comando rmdisk.
 			commands.ExecuteRmdisk(*path)
@@ -108,7 +130,7 @@ func main() {
 			// Validar parámetros obligatorios
 			if *path == "" || *name == "" || *size <= 0 {
 				fmt.Println("Error: los parámetros -path, -name y -size son obligatorios para fdisk.")
-				continue
+				
 			}
 
 			commands.ExecuteFdisk(*path, *name, *unit, *typeStr, *fit, *size)
@@ -121,7 +143,7 @@ func main() {
 
 			if *path == "" || *name == "" {
 				fmt.Println("Error: los parámetros -path y -name son obligatorios.")
-				continue
+				
 			}
 			commands.ExecuteMount(*path, *name)
 
@@ -141,7 +163,7 @@ func main() {
 			// Valida que el parámetro -id se haya proporcionado.
 			if *id == "" {
 				fmt.Println("Error: el parámetro -id es obligatorio para mkfs.")
-				continue
+				
 			}
 			// Ejecuta la lógica del comando mkfs.
 			commands.ExecuteMkfs(*id, *typeStr, *fs)
@@ -156,7 +178,7 @@ func main() {
 
 			if *user == "" || *pass == "" || *id == "" {
 				fmt.Println("Error: Los parametros -user, -pass y -id son obligatorios para login.")
-				continue
+				
 			}
 
 			commands.ExecuteLogin(*user, *pass, *id)
@@ -172,7 +194,7 @@ func main() {
 
 			if *file == "" {
 				fmt.Println("Error: El parametro -file es obligatorio para cat.")
-				continue
+				
 			}
 
 			commands.ExecuteCat(*file)
@@ -185,7 +207,7 @@ func main() {
 
 			if *name == "" {
 				fmt.Println("Error: El parametro -name es obligatorio para mkgrp.")
-				continue
+				
 			}
 
 			commands.ExecuteMkgrp(*name)
@@ -198,7 +220,7 @@ func main() {
 
 			if *name == "" {
 				fmt.Println("Error: El parametro -name es obligatorio para rmgrp.")
-				continue
+				
 			}
 
 			commands.ExecuteRmgrp(*name)
@@ -213,7 +235,7 @@ func main() {
 
 			if *user == "" || *pass == "" || *grp == "" {
 				fmt.Println("Error: Los parametros -user, -pass y -grp son obligatorios para mkusr.")
-				continue
+				
 			}
 
 			commands.ExecuteMkusr(*user, *pass, *grp)
@@ -226,7 +248,7 @@ func main() {
 
 			if *user=="" {
 				fmt.Println("Error: El parametro -user es obligatorio para rmusr.")
-				continue
+				
 			}
 
 			commands.ExecuteRmusr(*user)
@@ -240,7 +262,7 @@ func main() {
 
 			if *user=="" || *grp=="" {
 				fmt.Println("Error: El parametro user y grp son obligatorios para chgrp.")
-				continue
+				
 			}
 
 			commands.ExecuteChgrp(*user, *grp)
@@ -253,7 +275,7 @@ func main() {
 
 			if *path=="" {
 				fmt.Println("Error: El parametro path debe ser obligatorio para mkdir.")
-				continue
+				
 			}
 			
 			commands.ExecuteMkdir(*path, *p)
@@ -269,7 +291,7 @@ func main() {
 
 			if *path=="" {
 				fmt.Println("Error: El parametro path debe ser obligatorio para mkfile.")
-				continue
+				
 			}
 
 			commands.ExecuteMkfile(*path, *r, *size, *cont)
@@ -277,12 +299,14 @@ func main() {
 		default:
 			fmt.Printf("Comando '%s' no reconocido.\n", command)
 		}
-	}
+	w.Close()
 
-	// Manejo de errores del scanner
-	// scanner.Err() retorna cualquier error que haya ocurrido durante la lectura
-	if err := scanner.Err(); err != nil {
-		// fmt.Fprintln() imprime en stderr (salida de error estándar) en lugar de stdout
-		fmt.Fprintln(os.Stderr, "Error leyendo la entrada:", err)
-	}
+	// Lee la salida capturada
+	var buf strings.Builder
+	io.Copy(&buf, r)
+
+	// Restaura stdout
+	os.Stdout = oldStdout
+
+	return buf.String()
 }
