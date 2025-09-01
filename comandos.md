@@ -58,6 +58,9 @@ hacer que que el programa no sea case sensitive
 ## RMUSR
 - rmusr -user=jose
 
+## CHGRP
+- chgrp -user=root -grp=prueba
+
 # TEST
 - mkdisk -size=100 -unit=m -path=/home/josepirir/Discos/DiscoPrueba.mia
 - fdisk -size=50 -unit=m -path=/home/josepirir/Discos/DiscoPrueba.mia -name=Particion1 -type=p
@@ -67,6 +70,25 @@ hacer que que el programa no sea case sensitive
 - cat -file=/users.txt
 - mkgrp -name=usuarios
 - rmgrp -name=usuarios
-- mkusr -user=adri -pass=1234 -grp=usuarios
+- mkusr -user=jose -pass=123 -grp=usuarios
 - rmusr -user=jose
 - chgrp -user=root -grp=prueba
+- mkdir -path=/admin
+- mkfile -path=/numeros/numeros.txt
+
+# prueba permisos
+mount -path=/home/josepirir/Discos/DiscoPrueba.mia -name=Particion1
+mkfs -type=full -id=351A
+login -user=root -pass=123 -id=351A
+mkgrp -name=usuarios
+mkusr -user=jose -pass=123 -grp=usuarios
+mkdir -path=/admin
+mkfile -path=/admin/admin.txt
+logout
+
+login -user=jose -pass=123 -id=351A
+cat -file=/users.txt
+mkfile -path=/admin/prueba.txt
+
+Sigue pendiente el permiso de crear archivos como usuario NO root, en la raiz.
+(tengo que preguntar)

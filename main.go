@@ -2,10 +2,11 @@ package main
 
 // Importaciones necesarias para el funcionamiento del programa
 import (
-	"bufio"              // Paquete para leer la entrada de usuario línea por línea de manera eficiente
-	"flag"               // Paquete para manejar flags/parámetros de línea de comandos
-	"fmt"                // Paquete para formatear e imprimir texto en consola
-	"os"                 // Paquete para interactuar con el sistema operativo (stdin, stderr, etc.)
+	"bufio" // Paquete para leer la entrada de usuario línea por línea de manera eficiente
+	"flag"  // Paquete para manejar flags/parámetros de línea de comandos
+	"fmt"   // Paquete para formatear e imprimir texto en consola
+	"os"    // Paquete para interactuar con el sistema operativo (stdin, stderr, etc.)
+	//"path"
 	"proyecto1/commands" // Importa nuestro paquete personalizado que contiene los comandos disponibles
 	"strings"            // Paquete para manipular y modificar cadenas de texto
 )
@@ -183,7 +184,7 @@ func main() {
 			mkgrpCmd.Parse(args)
 
 			if *name == "" {
-				fmt.Println("Error: El parametro -name es obligatorio para mkgrp")
+				fmt.Println("Error: El parametro -name es obligatorio para mkgrp.")
 				continue
 			}
 
@@ -196,7 +197,7 @@ func main() {
 			rmgrpCmd.Parse(args)
 
 			if *name == "" {
-				fmt.Println("Error: El parametro -name es obligatorio para mkgrp")
+				fmt.Println("Error: El parametro -name es obligatorio para rmgrp.")
 				continue
 			}
 
@@ -224,7 +225,7 @@ func main() {
 			rmuserCmd.Parse(args)
 
 			if *user=="" {
-				fmt.Println("Error: El parametro -user es obligatorio para rmusr")
+				fmt.Println("Error: El parametro -user es obligatorio para rmusr.")
 				continue
 			}
 
@@ -238,11 +239,40 @@ func main() {
 			chgrpCmd.Parse(args)
 
 			if *user=="" || *grp=="" {
-				fmt.Println("Error: El parametro user y grp son obligatorios para chgrp")
+				fmt.Println("Error: El parametro user y grp son obligatorios para chgrp.")
 				continue
 			}
 
 			commands.ExecuteChgrp(*user, *grp)
+		case "mkdir":
+			mkdirCmd := flag.NewFlagSet("mkdir", flag.ExitOnError)
+			path := mkdirCmd.String("path","","Ruta de la carpeta que se creara.")
+			p := mkdirCmd.Bool("p", false, "Si existe, se pueden crear directorios padres.")
+
+			mkdirCmd.Parse(args)
+
+			if *path=="" {
+				fmt.Println("Error: El parametro path debe ser obligatorio para mkdir.")
+				continue
+			}
+			
+			commands.ExecuteMkdir(*path, *p)
+			
+		case "mkfile":
+			mkfileCmd := flag.NewFlagSet("mkfile", flag.ExitOnError)
+			path := mkfileCmd.String("path", "", "Ruta donde se creara un archivo.")
+			r := mkfileCmd.Bool("r", false, "Si existe, se pueden crear directorios padres.")
+			size := mkfileCmd.Int("size", 0, "Tamaño del archivo a crear")
+			cont := mkfileCmd.String("cont", "", "Ruta en la PC real donde se tomara un archivo.")
+
+			mkfileCmd.Parse(args)
+
+			if *path=="" {
+				fmt.Println("Error: El parametro path debe ser obligatorio para mkfile.")
+				continue
+			}
+
+			commands.ExecuteMkfile(*path, *r, *size, *cont)
 
 		default:
 			fmt.Printf("Comando '%s' no reconocido.\n", command)

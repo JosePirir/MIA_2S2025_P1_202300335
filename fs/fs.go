@@ -162,3 +162,10 @@ func MarkInodeAsUsed(file *os.File, sb structs.Superblock, index int32) error {
     _, err := file.WriteAt([]byte{1}, int64(sb.S_bm_inode_start)+int64(index))
     return err
 }
+
+func WriteFolderBlock(file *os.File, sb structs.Superblock, blockIndex int32, fb structs.FolderBlock) error {
+    blockSize := sb.S_block_size
+    offset := int64(sb.S_block_start) + int64(blockIndex)*int64(blockSize)
+    file.Seek(offset, 0)
+    return binary.Write(file, binary.BigEndian, &fb)
+}
