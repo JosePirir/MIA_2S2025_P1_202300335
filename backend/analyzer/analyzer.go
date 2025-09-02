@@ -296,6 +296,26 @@ func executeCommand(commandLine string) string {
 
 			commands.ExecuteMkfile(*path, *r, *size, *cont)
 
+		case "rep":
+			repCmd := flag.NewFlagSet("rep", flag.ExitOnError)
+			name := repCmd.String("name", "", "Nombre del reporte a generar.")
+			path := repCmd.String("path", "", "Ruta donde se creara el reporte.")
+			id := repCmd.String("id", "", "Indica el ID de la particion.")
+			path_file_ls := repCmd.String("path_file_ls", "", "Funciona con file y ls.")
+
+			repCmd.Parse(args)
+
+			if *name=="" || *path=="" || *id =="" {
+				fmt.Println("Error: Los parametros name, path, id deben ser obligatorios para rep.")
+			}
+
+			if (*name=="ls" && *path_file_ls=="") || (*name=="file" && *path_file_ls=="") {
+				fmt.Println("Error: El parametro path_file_ls es obligatorio cuando se utiliza file o ls")
+			}
+
+			commands.ExecuteRep(*name, *path, *id, *path_file_ls)
+
+
 		default:
 			fmt.Printf("Comando '%s' no reconocido.\n", command)
 		}

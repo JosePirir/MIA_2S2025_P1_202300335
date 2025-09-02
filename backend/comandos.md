@@ -61,6 +61,17 @@ hacer que que el programa no sea case sensitive
 ## CHGRP
 - chgrp -user=root -grp=prueba
 
+## REP
+
+### MBR
+- rep -id=351A -path=/home/josepirir/Discos/mbr.jpg -name=mbr
+
+### DISK
+- rep -id=351A -path=/home/josepirir/Discos/disk.jpg -name=disk
+
+### INODE
+- rep -id=351A -path=/home/josepirir/Discos/inode.jpg -name=inode
+
 # TEST
 - mkdisk -size=100 -unit=m -path=/home/josepirir/Discos/DiscoPrueba.mia
 - fdisk -size=50 -unit=m -path=/home/josepirir/Discos/DiscoPrueba.mia -name=Particion1 -type=p
@@ -92,3 +103,4 @@ mkfile -path=/admin/prueba.txt
 
 Sigue pendiente el permiso de crear archivos como usuario NO root, en la raiz.
 (tengo que preguntar)
+

@@ -1,34 +1,62 @@
 import React from 'react';
 
-const OutputArea = ({ output, onClear }) => {
+const OutputArea = ({ output = '', onClear }) => {
+  // Separar bloques por doble salto de línea y eliminar vacíos
+  const blocks = output.split('\n\n').filter(Boolean);
+
   return (
-    <div className="card">
-      <div className="card-header d-flex justify-content-between align-items-center">
-        <h5 className="card-title mb-0">
-          <i className="bi bi-list-ul me-2"></i>
+    <div className="card shadow-lg border-0">
+      {/* Header */}
+      <div className="card-header d-flex justify-content-between align-items-center bg-secondary text-white">
+        <h5 className="mb-0 d-flex align-items-center">
+          <i className="bi bi-terminal-fill me-2"></i>
           Área de Salida de Comandos
         </h5>
         <button
           type="button"
-          className="btn btn-outline-secondary btn-sm"
+          className="btn btn-sm btn-outline-light d-flex align-items-center"
           onClick={onClear}
         >
           <i className="bi bi-trash me-1"></i>
           Limpiar
         </button>
       </div>
-      <div className="card-body">
-        <pre
-          className="bg-dark text-light p-3 rounded"
-          style={{ 
-            height: '500px', 
-            overflowY: 'auto',
-            fontSize: '0.875rem',
-            whiteSpace: 'pre-wrap'
-          }}
-        >
-          {output || 'Ejecute algunos comandos para ver la salida aquí...'}
-        </pre>
+
+      {/* Body */}
+      <div
+        className="card-body p-2 bg-dark rounded-bottom overflow-auto"
+        style={{
+          height: '500px',
+          fontFamily: 'monospace',
+          fontSize: '0.9rem',
+          color: 'white'
+        }}
+      >
+        {blocks.length > 0 ? (
+          blocks.map((block, index) => (
+            <div
+              key={index}
+              className="mb-2 p-2 rounded shadow-sm"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.07)',
+                border: '1px solid rgba(255,255,255,0.25)',
+                whiteSpace: 'pre-wrap',
+                color: 'white'
+              }}
+            >
+              {block
+                .split('\n')
+                .filter(Boolean) // eliminar líneas vacías
+                .map((line, i) => (
+                  <div key={i}>{line}</div>
+                ))}
+            </div>
+          ))
+        ) : (
+          <div className="text-muted px-2">
+            Ejecute algunos comandos para ver la salida aquí...
+          </div>
+        )}
       </div>
     </div>
   );
