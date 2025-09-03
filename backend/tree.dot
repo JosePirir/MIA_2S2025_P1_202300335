@@ -1,0 +1,8 @@
+digraph Tree {
+node [shape=record, style=filled, fillcolor=lightblue];
+"Superblock" [label="Superblock | Inodes: -458030592 | Blocks: -1407514624"];
+"InodeTable" [label="Tabla de Inodos"];
+"BlockTable" [label="Tabla de Bloques"];
+"Superblock" -> "InodeTable";
+"Superblock" -> "BlockTable";
+}

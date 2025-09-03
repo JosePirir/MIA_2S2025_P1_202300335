@@ -72,6 +72,30 @@ hacer que que el programa no sea case sensitive
 ### INODE
 - rep -id=351A -path=/home/josepirir/Discos/inode.jpg -name=inode
 
+### BLOCK
+- rep -id=351A -path=/home/josepirir/Discos/block -name=block
+
+### BM_INODE
+- rep -id=351A -path=/home/josepirir/Discos/inode.txt -name=bm_inode
+
+### BM_BLOC
+- rep -id=351A -path=/home/josepirir/Discos/bloc.txt -name=bm_bloc
+##### NO SE SI FUNCIONA CORRECTAMENTE
+
+### TREE
+- rep -id=351A -path=/home/josepirir/Discos/tree.jpg -name=tree
+##### NO SE SI FUNCIONA CORRECTAMENTE
+
+### SB
+- rep -id=351A -path=/home/josepirir/Discos/sb.jpg -name=sb
+##### NO SE SI FUNCIONA CORRECTAMENTE
+
+### FILE
+- rep -id=351A -path=/home/josepirir/Discos/file.txt -path_file_ls=/users.txt -name=file
+
+### FILE
+- rep -id=351A -path=/home/josepirir/Discos/ls.jpg -path_file_ls=/users.txt -name=ls
+
 # TEST
 - mkdisk -size=100 -unit=m -path=/home/josepirir/Discos/DiscoPrueba.mia
 - fdisk -size=50 -unit=m -path=/home/josepirir/Discos/DiscoPrueba.mia -name=Particion1 -type=p
