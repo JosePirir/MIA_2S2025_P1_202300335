@@ -13,6 +13,11 @@ import (
 )
 
 func ExecuteMkfile(path string, r bool, size int, cont string) {
+	if size < 0 {
+		fmt.Println("Error: el tamaño no puede ser negativo")
+		return
+	}
+
 	if !state.CurrentSession.IsActive {
 		fmt.Println("Error: Debes iniciar sesión para usar mkfile.")
 		return
@@ -46,10 +51,12 @@ func ExecuteMkfile(path string, r bool, size int, cont string) {
 	}
 
 	currentInodeIndex := int32(0)
+
 	// Crear carpetas padre si es necesario
 	for i, part := range pathParts[:len(pathParts)-1] {
 		inode, _ := fs.ReadInode(file, sb, currentInodeIndex)
 		found := false
+
 		for _, blockNum := range inode.I_block {
 			if blockNum == -1 {
 				continue
@@ -70,15 +77,14 @@ func ExecuteMkfile(path string, r bool, size int, cont string) {
 
 		if !found {
 			if r {
-				// Crear carpeta padre
+				// Crear la carpeta padre usando mkdir
 				ExecuteMkdir(strings.Join(pathParts[:i+1], "/"), true)
-				// Recalcular currentInodeIndex
+				// Recalcular el currentInodeIndex después de crear la carpeta
 				currentInodeIndex = 0
-				for j, p := range pathParts[:i+1] {
-					fmt.Println(j)
-					inodeTmp, _ := fs.ReadInode(file, sb, currentInodeIndex)
-					foundTmp := false
-					for _, blockNum := range inodeTmp.I_block {
+				for _, p := range pathParts[:i+1] {
+					tmpInode, _ := fs.ReadInode(file, sb, currentInodeIndex)
+					tmpFound := false
+					for _, blockNum := range tmpInode.I_block {
 						if blockNum == -1 {
 							continue
 						}
@@ -87,11 +93,11 @@ func ExecuteMkfile(path string, r bool, size int, cont string) {
 							name := string(bytes.Trim(entry.B_name[:], "\x00"))
 							if name == p && entry.B_inodo != -1 {
 								currentInodeIndex = entry.B_inodo
-								foundTmp = true
+								tmpFound = true
 								break
 							}
 						}
-						if foundTmp {
+						if tmpFound {
 							break
 						}
 					}
@@ -111,6 +117,7 @@ func ExecuteMkfile(path string, r bool, size int, cont string) {
 
 	fileName := pathParts[len(pathParts)-1]
 
+	// Crear el inodo del archivo
 	newInodeIndex, _ := fs.FindFreeInode(file, sb)
 	fs.MarkInodeAsUsed(file, sb, newInodeIndex)
 
@@ -126,7 +133,7 @@ func ExecuteMkfile(path string, r bool, size int, cont string) {
 		newInode.I_block[i] = -1
 	}
 
-	// Contenido del archivo
+	// Preparar contenido
 	var content []byte
 	if cont != "" {
 		// Leer archivo real desde la PC
@@ -167,7 +174,8 @@ func ExecuteMkfile(path string, r bool, size int, cont string) {
 
 	fs.WriteInode(file, sb, newInodeIndex, newInode)
 
-	// Actualizar carpeta padre
+	// Actualizar carpeta padre (registrar archivo en carpeta)
+	inserted := false
 	for _, blockNum := range parentInode.I_block {
 		if blockNum == -1 {
 			continue
@@ -175,9 +183,35 @@ func ExecuteMkfile(path string, r bool, size int, cont string) {
 		parentFB, _ := fs.ReadFolderBlock(file, sb, blockNum)
 		for idx, entry := range parentFB.B_content {
 			if entry.B_inodo == -1 {
-				copy(parentFB.B_content[idx].B_name[:], fileName)
+				copy(parentFB.B_content[idx].B_name[:], []byte(fileName))
 				parentFB.B_content[idx].B_inodo = newInodeIndex
 				fs.WriteFolderBlock(file, sb, blockNum, parentFB)
+				inserted = true
+				break
+			}
+		}
+		if inserted {
+			break
+		}
+	}
+
+	// Si no se encontró espacio, crear un bloque nuevo para la carpeta padre
+	if !inserted {
+		newParentBlockIndex, _ := fs.FindFreeBlock(file, sb)
+		fs.MarkBlockAsUsed(file, sb, newParentBlockIndex)
+
+		var parentFB structs.FolderBlock
+		for i := range parentFB.B_content {
+			parentFB.B_content[i].B_inodo = -1
+		}
+		copy(parentFB.B_content[0].B_name[:], []byte(fileName))
+		parentFB.B_content[0].B_inodo = newInodeIndex
+		fs.WriteFolderBlock(file, sb, newParentBlockIndex, parentFB)
+
+		for i := range parentInode.I_block {
+			if parentInode.I_block[i] == -1 {
+				parentInode.I_block[i] = newParentBlockIndex
+				fs.WriteInode(file, sb, currentInodeIndex, parentInode)
 				break
 			}
 		}

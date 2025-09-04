@@ -6,7 +6,7 @@ const Header = () => {
       <div className="container-fluid">
         <span className="navbar-brand mb-0 h1">
           <i className="bi bi-hdd-stack me-2"></i>
-          Sistema de Archivos - MIA
+          Sistema de Archivos - MIA - Jose Pirir - 202300335
         </span>
       </div>
     </nav>

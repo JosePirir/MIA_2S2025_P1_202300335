@@ -1,0 +1,35 @@
+digraph G {
+rankdir=TB;
+node [shape=record, style=filled, fontname=Helvetica];
+inode0 [label="{INODO 0|Tamaño: 16843009|Bloques: [0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]}" fillcolor="#FFCC00"];
+block0 [label="Bloque Archivo 0" fillcolor="#CCFF99"];
+inode0 -> block0;
+block0 [label="Bloque Archivo 0" fillcolor="#CCFF99"];
+inode0 -> block0;
+block0 [label="Bloque Archivo 0" fillcolor="#CCFF99"];
+inode0 -> block0;
+block0 [label="Bloque Archivo 0" fillcolor="#CCFF99"];
+inode0 -> block0;
+block0 [label="Bloque Archivo 0" fillcolor="#CCFF99"];
+inode0 -> block0;
+block0 [label="Bloque Archivo 0" fillcolor="#CCFF99"];
+inode0 -> block0;
+block0 [label="Bloque Archivo 0" fillcolor="#CCFF99"];
+inode0 -> block0;
+block0 [label="Bloque Archivo 0" fillcolor="#CCFF99"];
+inode0 -> block0;
+block0 [label="Bloque Archivo 0" fillcolor="#CCFF99"];
+inode0 -> block0;
+block0 [label="Bloque Archivo 0" fillcolor="#CCFF99"];
+inode0 -> block0;
+block0 [label="Bloque Archivo 0" fillcolor="#CCFF99"];
+inode0 -> block0;
+block0 [label="Bloque Archivo 0" fillcolor="#CCFF99"];
+inode0 -> block0;
+block0 [label="Bloque Archivo 0" fillcolor="#CCFF99"];
+inode0 -> block0;
+block0 [label="Bloque Archivo 0" fillcolor="#CCFF99"];
+inode0 -> block0;
+block0 [label="Bloque Archivo 0" fillcolor="#CCFF99"];
+inode0 -> block0;
+}

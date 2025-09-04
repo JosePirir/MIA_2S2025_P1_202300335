@@ -1,7 +1,11 @@
 package commands
 
+import "strings"
+
 
 func ExecuteRep(name string, path string, id string, path_file_ls string) {	
+	name = strings.ToLower(name)
+	
 	switch name {
 		case "mbr":
 			MBR(id, path)

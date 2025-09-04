@@ -6,115 +6,104 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"proyecto1/fs"
 	"proyecto1/state"
 	"proyecto1/structs"
-	"proyecto1/fs"
+	"strings"
 )
 
-// TREE genera un reporte gráfico de los inodos y carpetas (árbol del sistema de archivos)
+// TREE genera el árbol gráfico del sistema de archivos EXT2 de una partición montada
 func TREE(id, path string) error {
 	// 1. Buscar la partición montada
 	mountedPartition, found := state.GetMountedPartitionByID(id)
 	if !found {
-		return fmt.Errorf("no se encontró la partición montada con ID %s", id)
+		return fmt.Errorf("no se encontró partición montada con id %s", id)
 	}
 
-	// 2. Abrir el disco
+	// 2. Abrir archivo de disco
 	file, err := os.Open(mountedPartition.Path)
 	if err != nil {
 		return fmt.Errorf("error abriendo el disco: %v", err)
 	}
 	defer file.Close()
 
-	// 3. Leer el superbloque
+	// 3. Leer Superblock
 	var sb structs.Superblock
 	file.Seek(mountedPartition.Start, 0)
-	err = binary.Read(file, binary.LittleEndian, &sb)
-	if err != nil {
-		return fmt.Errorf("error leyendo superbloque: %v", err)
+	if err := binary.Read(file, binary.LittleEndian, &sb); err != nil {
+		return fmt.Errorf("error leyendo superblock: %v", err)
 	}
 
-	// 4. Iniciar DOT
-	dot := "digraph TREE {\n"
-	dot += "node [shape=plaintext fontname=\"Helvetica\"];\n"
+	// 4. Crear contenido DOT
+	dot := "digraph G {\n"
+	dot += "rankdir=TB;\n"
+	dot += "node [shape=record, style=filled, fontname=Helvetica];\n"
 
-	// 5. Llamar a recursivo desde inodo raíz
-	dot += recorrerInodo(file, sb, 0)
+	// 5. Iniciar desde el inodo raíz (#0 en EXT2)
+	traverseInodeTree(file, sb, 0, &dot)
 
 	dot += "}\n"
 
-	// 6. Guardar en archivo DOT
-	dotFile := "/tmp/tree.dot"
-	imgFile := path
-	err = os.WriteFile(dotFile, []byte(dot), 0644)
-	if err != nil {
+	// 6. Guardar DOT temporal y generar imagen con Graphviz
+	tmpPath := "tree_report.dot"
+	if err := os.WriteFile(tmpPath, []byte(dot), 0644); err != nil {
 		return fmt.Errorf("error escribiendo archivo DOT: %v", err)
 	}
 
-	// 7. Generar imagen con Graphviz
-	cmd := exec.Command("dot", "-Tpng", dotFile, "-o", imgFile)
-	err = cmd.Run()
-	if err != nil {
+	cmd := exec.Command("dot", "-Tpng", tmpPath, "-o", path)
+	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("error ejecutando Graphviz: %v", err)
 	}
 
+	fmt.Printf("Reporte TREE generado en %s\n", path)
 	return nil
 }
 
-// recorrerInodo dibuja un inodo y sus bloques/carpetas hijos
-func recorrerInodo(file *os.File, sb structs.Superblock, index int32) string {
-	dot := ""
-
-	// 1. Leer inodo
-	inode, err := fs.ReadInode(file, sb, index)
+// traverseInodeTree recorre recursivamente los inodos y sus bloques
+func traverseInodeTree(file *os.File, sb structs.Superblock, inodeIndex int32, dot *string) {
+	inode, err := fs.ReadInode(file, sb, inodeIndex)
 	if err != nil {
-		return ""
+		return
 	}
 
-	// 2. Crear tabla del inodo
-	inodeName := fmt.Sprintf("inode%d", index)
-	dot += fmt.Sprintf("%s [label=<\n", inodeName)
-	dot += "<table border='1' cellborder='1' cellspacing='0'>\n"
-	dot += fmt.Sprintf("<tr><td colspan='2'>Inodo %d</td></tr>\n", index)
+	nodeName := fmt.Sprintf("inode%d", inodeIndex)
+	color := "#FFCC00" // amarillo para inodos
+	*dot += fmt.Sprintf("%s [label=\"{INODO %d|Tamaño: %d|Bloques: %d}\" fillcolor=\"%s\"];\n",
+		nodeName, inodeIndex, inode.I_size, inode.I_block, color)
 
-	for i, ptr := range inode.I_block {
-		dot += fmt.Sprintf("<tr><td>AP%d</td><td>%d</td></tr>\n", i, ptr)
-	}
-	dot += "</table>>];\n"
+	// recorrer bloques asociados
+	for _, b := range inode.I_block {
+		if b == -1 {
+			continue
+		}
 
-	// 3. Recorrer punteros
-	for i, ptr := range inode.I_block {
-		fmt.Printf("Puntero %d: %d\n", i, ptr)
-		if ptr != -1 {
-			// Leer bloque carpeta
-			block, err := fs.ReadFolderBlock(file, sb, ptr)
+		blockName := fmt.Sprintf("block%d", b)
+
+		// Detectar si es carpeta o archivo
+		if inode.I_type == 1 { // Carpeta
+			*dot += fmt.Sprintf("%s [label=\"Bloque Carpeta %d\" fillcolor=\"#99CCFF\"];\n", blockName, b)
+		} else {
+			*dot += fmt.Sprintf("%s [label=\"Bloque Archivo %d\" fillcolor=\"#CCFF99\"];\n", blockName, b)
+		}
+
+		*dot += fmt.Sprintf("%s -> %s;\n", nodeName, blockName)
+
+		// Si es carpeta, leer FolderBlock y seguir recorriendo
+		if inode.I_type == 1 {
+			fb, err := fs.ReadFolderBlock(file, sb, b)
 			if err != nil {
 				continue
 			}
-
-			// Dibujar bloque
-			blockName := fmt.Sprintf("block%d", ptr)
-			dot += fmt.Sprintf("%s [label=<\n", blockName)
-			dot += "<table border='1' cellborder='1' cellspacing='0'>\n"
-			dot += fmt.Sprintf("<tr><td colspan='2'>Bloque %d</td></tr>\n", ptr)
-
-			for _, content := range block.B_content {
-				dot += fmt.Sprintf("<tr><td>%s</td><td>%d</td></tr>\n", content.B_name, content.B_inodo)
-			}
-			dot += "</table>>];\n"
-
-			// Relación inodo -> bloque
-			dot += fmt.Sprintf("%s -> %s;\n", inodeName, blockName)
-
-			// Recursión a inodos hijos
-			for _, content := range block.B_content {
+			for _, content := range fb.B_content {
 				if content.B_inodo != -1 {
-					dot += recorrerInodo(file, sb, content.B_inodo)
-					dot += fmt.Sprintf("%s -> inode%d;\n", blockName, content.B_inodo)
+					name := strings.TrimSpace(string(content.B_name[:])) // convertir [12]byte → string
+					if name != "" {
+						childName := fmt.Sprintf("inode%d", content.B_inodo)
+						*dot += fmt.Sprintf("%s -> %s [label=\"%s\"];\n", blockName, childName, name)
+						traverseInodeTree(file, sb, content.B_inodo, dot)
+					}
 				}
 			}
 		}
 	}
-
-	return dot
 }

@@ -67,8 +67,8 @@ func executeCommand(commandLine string) string {
 		switch command {
 		case "mkdisk":
 			// Crear un nuevo conjunto de flags específico para el comando mkdisk
-			// flag.ExitOnError hace que el programa termine si hay un error en los flags
-			mkdiskCmd := flag.NewFlagSet("mkdisk", flag.ExitOnError)
+			// flag.ContinueOnError hace que el programa termine si hay un error en los flags
+			mkdiskCmd := flag.NewFlagSet("mkdisk", flag.ContinueOnError)
 
 			// Definir los flags que acepta el comando mkdisk:
 			// Int() crea un flag que acepta números enteros
@@ -101,7 +101,7 @@ func executeCommand(commandLine string) string {
 
 		case "rmdisk":
 			// Crea un FlagSet específico para rmdisk.
-			rmdiskCmd := flag.NewFlagSet("rmdisk", flag.ExitOnError)
+			rmdiskCmd := flag.NewFlagSet("rmdisk", flag.ContinueOnError)
 			// Define el único parámetro que rmdisk necesita: -path.
 			path := rmdiskCmd.String("path", "", "Ruta del disco a eliminar.")
 
@@ -117,7 +117,7 @@ func executeCommand(commandLine string) string {
 			commands.ExecuteRmdisk(*path)
 		case "fdisk":
 			// Crea un FlagSet para fdisk con todos sus parámetros.
-			fdiskCmd := flag.NewFlagSet("fdisk", flag.ExitOnError)
+			fdiskCmd := flag.NewFlagSet("fdisk", flag.ContinueOnError)
 			size := fdiskCmd.Int64("size", 0, "Tamaño de la partición.")
 			path := fdiskCmd.String("path", "", "Ruta del disco.")
 			name := fdiskCmd.String("name", "", "Nombre de la partición.")
@@ -136,7 +136,7 @@ func executeCommand(commandLine string) string {
 			commands.ExecuteFdisk(*path, *name, *unit, *typeStr, *fit, *size)
 		// --- FIN DE LA MODIFICACIÓN ---
 		case "mount":
-			mountCmd := flag.NewFlagSet("mount", flag.ExitOnError)
+			mountCmd := flag.NewFlagSet("mount", flag.ContinueOnError)
 			path := mountCmd.String("path", "", "Ruta del disco.")
 			name := mountCmd.String("name", "", "Nombre de la partición.")
 			mountCmd.Parse(args)
@@ -152,7 +152,7 @@ func executeCommand(commandLine string) string {
 
 		case "mkfs":
 			// Crea un FlagSet específico para mkfs.
-			mkfsCmd := flag.NewFlagSet("mkfs", flag.ExitOnError)
+			mkfsCmd := flag.NewFlagSet("mkfs", flag.ContinueOnError)
 			id := mkfsCmd.String("id", "", "ID de la partición a formatear.")
 			typeStr := mkfsCmd.String("type", "full", "Tipo de formateo (full).")
 			fs := mkfsCmd.String("fs", "2fs", "Sistema de archivos (2fs).")
@@ -169,7 +169,7 @@ func executeCommand(commandLine string) string {
 			commands.ExecuteMkfs(*id, *typeStr, *fs)
 
 		case "login":
-			loginCmd := flag.NewFlagSet("login", flag.ExitOnError)
+			loginCmd := flag.NewFlagSet("login", flag.ContinueOnError)
 			user := loginCmd.String("user", "", "Usuario que va a iniciar sesion.")
 			pass := loginCmd.String("pass", "", "Contrasenia para iniciar sesion.")
 			id := loginCmd.String("id", "", "ID de la particion en la que se va a iniciar sesion.")
@@ -187,7 +187,7 @@ func executeCommand(commandLine string) string {
 			commands.ExecuteLogout()
 
 		case "cat":
-			catCmd := flag.NewFlagSet("cat", flag.ExitOnError)
+			catCmd := flag.NewFlagSet("cat", flag.ContinueOnError)
 			file := catCmd.String("file", "", "File que se va a leer de la particion en la que previamente ya se inicio sesion.")
 
 			catCmd.Parse(args)
@@ -200,7 +200,7 @@ func executeCommand(commandLine string) string {
 			commands.ExecuteCat(*file)
 
 		case "mkgrp":
-			mkgrpCmd := flag.NewFlagSet("mkgrp", flag.ExitOnError)
+			mkgrpCmd := flag.NewFlagSet("mkgrp", flag.ContinueOnError)
 			name := mkgrpCmd.String("name", "", "Nombre del grupo a crear en users.txt.")
 
 			mkgrpCmd.Parse(args)
@@ -213,7 +213,7 @@ func executeCommand(commandLine string) string {
 			commands.ExecuteMkgrp(*name)
 
 		case "rmgrp":
-			rmgrpCmd := flag.NewFlagSet("rmgrp", flag.ExitOnError)
+			rmgrpCmd := flag.NewFlagSet("rmgrp", flag.ContinueOnError)
 			name := rmgrpCmd.String("name", "", "Nombre del grupo a crear en users.txt.")
 
 			rmgrpCmd.Parse(args)
@@ -226,7 +226,7 @@ func executeCommand(commandLine string) string {
 			commands.ExecuteRmgrp(*name)
 
 		case "mkusr":
-			mkusrCmd := flag.NewFlagSet("mkusr", flag.ExitOnError)
+			mkusrCmd := flag.NewFlagSet("mkusr", flag.ContinueOnError)
 			user := mkusrCmd.String("user", "", "Nombre del usuario a crear.")
 			pass := mkusrCmd.String("pass", "", "Contrasenia del usuario a crear.")
 			grp := mkusrCmd.String("grp", "", "Grupo que sera el usuario.")
@@ -241,7 +241,7 @@ func executeCommand(commandLine string) string {
 			commands.ExecuteMkusr(*user, *pass, *grp)
 
 		case "rmusr":
-			rmuserCmd := flag.NewFlagSet("rmusr", flag.ExitOnError)
+			rmuserCmd := flag.NewFlagSet("rmusr", flag.ContinueOnError)
 			user := rmuserCmd.String("user", "", "Nombre del usuario a eliminar.")
 
 			rmuserCmd.Parse(args)
@@ -254,7 +254,7 @@ func executeCommand(commandLine string) string {
 			commands.ExecuteRmusr(*user)
 
 		case "chgrp":
-			chgrpCmd := flag.NewFlagSet("chgrp", flag.ExitOnError)
+			chgrpCmd := flag.NewFlagSet("chgrp", flag.ContinueOnError)
 			user := chgrpCmd.String("user", "", "Nombre del usuario a cambiar de grupo.")
 			grp := chgrpCmd.String("grp", "", "Grupo al que se cambiara el usuario.")
 
@@ -267,7 +267,7 @@ func executeCommand(commandLine string) string {
 
 			commands.ExecuteChgrp(*user, *grp)
 		case "mkdir":
-			mkdirCmd := flag.NewFlagSet("mkdir", flag.ExitOnError)
+			mkdirCmd := flag.NewFlagSet("mkdir", flag.ContinueOnError)
 			path := mkdirCmd.String("path","","Ruta de la carpeta que se creara.")
 			p := mkdirCmd.Bool("p", false, "Si existe, se pueden crear directorios padres.")
 
@@ -281,7 +281,7 @@ func executeCommand(commandLine string) string {
 			commands.ExecuteMkdir(*path, *p)
 			
 		case "mkfile":
-			mkfileCmd := flag.NewFlagSet("mkfile", flag.ExitOnError)
+			mkfileCmd := flag.NewFlagSet("mkfile", flag.ContinueOnError)
 			path := mkfileCmd.String("path", "", "Ruta donde se creara un archivo.")
 			r := mkfileCmd.Bool("r", false, "Si existe, se pueden crear directorios padres.")
 			size := mkfileCmd.Int("size", 0, "Tamaño del archivo a crear")
@@ -297,7 +297,7 @@ func executeCommand(commandLine string) string {
 			commands.ExecuteMkfile(*path, *r, *size, *cont)
 
 		case "rep":
-			repCmd := flag.NewFlagSet("rep", flag.ExitOnError)
+			repCmd := flag.NewFlagSet("rep", flag.ContinueOnError)
 			name := repCmd.String("name", "", "Nombre del reporte a generar.")
 			path := repCmd.String("path", "", "Ruta donde se creara el reporte.")
 			id := repCmd.String("id", "", "Indica el ID de la particion.")

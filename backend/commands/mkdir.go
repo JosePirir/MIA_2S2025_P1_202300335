@@ -1,7 +1,7 @@
 package commands
 
 import (
-	"bytes"
+	
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -159,7 +159,7 @@ func ExecuteMkdir(path string, p bool) {
 			}
 			fb, _ := fs.ReadFolderBlock(file, sb, blockNum)
 			for _, entry := range fb.B_content {
-				name := string(bytes.Trim(entry.B_name[:], "\x00"))
+				name := strings.Trim(string(entry.B_name[:]), "\x00 ")
 				if name == part && entry.B_inodo != -1 {
 					currentInodeIndex = entry.B_inodo
 					found = true
@@ -172,64 +172,97 @@ func ExecuteMkdir(path string, p bool) {
 		}
 
 		if !found {
-			if i == len(pathParts)-1 || p {
-				// Crear carpeta
-				if !tienePermisoEscritura(inode, uid, gid) {
-					fmt.Println("Error: no tienes permiso de escritura en la carpeta padre")
-					return
-				}
+			if i < len(pathParts)-1 && !p {
+				// Es carpeta intermedia y -p no fue usado
+				fmt.Println("Error: la carpeta padre", part, "no existe y -p no fue usado")
+				return
+			}
 
-				newInodeIndex, _ := fs.FindFreeInode(file, sb)
-				newBlockIndex, _ := fs.FindFreeBlock(file, sb)
-				fs.MarkInodeAsUsed(file, sb, newInodeIndex)
-				fs.MarkBlockAsUsed(file, sb, newBlockIndex)
+			// Crear carpeta
+			if !tienePermisoEscritura(inode, uid, gid) {
+				fmt.Println("Error: no tienes permiso de escritura en la carpeta padre")
+				return
+			}
 
-				var newInode structs.Inode
-				newInode.I_uid = uid
-				newInode.I_gid = gid
-				newInode.I_size = int32(unsafe.Sizeof(structs.FolderBlock{}))
-				newInode.I_atime = time.Now().Unix()
-				newInode.I_ctime = time.Now().Unix()
-				newInode.I_mtime = time.Now().Unix()
-				newInode.I_type = 0 // carpeta
-				newInode.I_perm = 664
-				for j := range newInode.I_block {
-					newInode.I_block[j] = -1
-				}
-				newInode.I_block[0] = newBlockIndex
-				fs.WriteInode(file, sb, newInodeIndex, newInode)
+			newInodeIndex, _ := fs.FindFreeInode(file, sb)
+			newBlockIndex, _ := fs.FindFreeBlock(file, sb)
+			fs.MarkInodeAsUsed(file, sb, newInodeIndex)
+			fs.MarkBlockAsUsed(file, sb, newBlockIndex)
 
-				var newFolderBlock structs.FolderBlock
-				for k := range newFolderBlock.B_content {
-					newFolderBlock.B_content[k].B_inodo = -1
-				}
-				copy(newFolderBlock.B_content[0].B_name[:], ".")
-				newFolderBlock.B_content[0].B_inodo = newInodeIndex
-				copy(newFolderBlock.B_content[1].B_name[:], "..")
-				newFolderBlock.B_content[1].B_inodo = currentInodeIndex
-				fs.WriteFolderBlock(file, sb, newBlockIndex, newFolderBlock)
+			var newInode structs.Inode
+			newInode.I_uid = uid
+			newInode.I_gid = gid
+			newInode.I_size = int32(unsafe.Sizeof(structs.FolderBlock{}))
+			newInode.I_atime = time.Now().Unix()
+			newInode.I_ctime = time.Now().Unix()
+			newInode.I_mtime = time.Now().Unix()
+			newInode.I_type = 0 // carpeta
+			newInode.I_perm = 664
+			for j := range newInode.I_block {
+				newInode.I_block[j] = -1
+			}
+			newInode.I_block[0] = newBlockIndex
+			fs.WriteInode(file, sb, newInodeIndex, newInode)
 
-				// Actualizar carpeta padre
-				for _, blockNum := range inode.I_block {
-					if blockNum == -1 {
-						continue
+			var newFolderBlock structs.FolderBlock
+			for k := range newFolderBlock.B_content {
+				newFolderBlock.B_content[k].B_inodo = -1
+			}
+			copy(newFolderBlock.B_content[0].B_name[:], []byte("."))
+			newFolderBlock.B_content[0].B_inodo = newInodeIndex
+			copy(newFolderBlock.B_content[1].B_name[:], []byte(".."))
+			newFolderBlock.B_content[1].B_inodo = currentInodeIndex
+			fs.WriteFolderBlock(file, sb, newBlockIndex, newFolderBlock)
+
+			// Actualizar carpeta padre (si no hay espacio, asigna un nuevo bloque)
+			inserted := false
+			for _, blockNum := range inode.I_block {
+				if blockNum == -1 {
+					// Asignar un nuevo bloque al padre
+					newParentBlockIndex, _ := fs.FindFreeBlock(file, sb)
+					fs.MarkBlockAsUsed(file, sb, newParentBlockIndex)
+
+					var parentFB structs.FolderBlock
+					for z := range parentFB.B_content {
+						parentFB.B_content[z].B_inodo = -1
 					}
-					parentFB, _ := fs.ReadFolderBlock(file, sb, blockNum)
-					for idx, entry := range parentFB.B_content {
-						if entry.B_inodo == -1 {
-							copy(parentFB.B_content[idx].B_name[:], part)
-							parentFB.B_content[idx].B_inodo = newInodeIndex
-							fs.WriteFolderBlock(file, sb, blockNum, parentFB)
+					copy(parentFB.B_content[0].B_name[:], []byte(part))
+					parentFB.B_content[0].B_inodo = newInodeIndex
+					fs.WriteFolderBlock(file, sb, newParentBlockIndex, parentFB)
+
+					// enlazar en el inodo padre
+					for j := range inode.I_block {
+						if inode.I_block[j] == -1 {
+							inode.I_block[j] = newParentBlockIndex
+							fs.WriteInode(file, sb, currentInodeIndex, inode)
 							break
 						}
 					}
+					inserted = true
+					break
 				}
 
-				currentInodeIndex = newInodeIndex
-			} else {
-				fmt.Println("Error: la carpeta padre no existe y -p no fue usado")
+				parentFB, _ := fs.ReadFolderBlock(file, sb, blockNum)
+				for idx, entry := range parentFB.B_content {
+					if entry.B_inodo == -1 {
+						copy(parentFB.B_content[idx].B_name[:], []byte(part))
+						parentFB.B_content[idx].B_inodo = newInodeIndex
+						fs.WriteFolderBlock(file, sb, blockNum, parentFB)
+						inserted = true
+						break
+					}
+				}
+				if inserted {
+					break
+				}
+			}
+
+			if !inserted {
+				fmt.Println("Error: no hay espacio en el padre para registrar la carpeta")
 				return
 			}
+
+			currentInodeIndex = newInodeIndex
 		}
 	}
 

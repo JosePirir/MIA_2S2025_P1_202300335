@@ -7,6 +7,7 @@ import (
 	"time"
 	"proyecto1/state"
 	"proyecto1/structs"
+	"path/filepath"
 
 	"github.com/fogleman/gg"
 )
@@ -141,6 +142,13 @@ func DISK(id string, imagePath string) {
 		dc.SetRGB(0, 0, 0)
 		dc.DrawStringAnchored("Libre", xPos+(float64(W)-xPos)/2, barY+barHeight/2, 0.5, 0.5)
 		dc.DrawStringAnchored(fmt.Sprintf("%.2f%%", freePercent*100), xPos+(float64(W)-xPos)/2, barY+barHeight/2+15, 0.5, 0.5)
+	}
+
+	// Asegurarse de que la carpeta existe antes de guardar
+	dir := filepath.Dir(imagePath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		fmt.Println("Error al crear las carpetas necesarias:", err)
+		return
 	}
 
 	// Guardar imagen

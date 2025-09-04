@@ -21,9 +21,9 @@ const CommandArea = ({ onExecute, isExecuting }) => {
   };
 
   return (
-    <div className="card shadow-lg border-0">
+    <div className="card shadow-lg border-0 bg-dark text-light">
       {/* Header */}
-      <div className="card-header bg-success text-white">
+      <div className="card-header bg-success text-white border-0">
         <h5 className="mb-0 d-flex align-items-center">
           <i className="bi bi-terminal me-2"></i>
           Área de Comandos
@@ -34,7 +34,7 @@ const CommandArea = ({ onExecute, isExecuting }) => {
       <div className="card-body d-flex flex-column gap-4">
         {/* Sección de archivo */}
         <div>
-          <label htmlFor="fileInput" className="form-label fw-bold">
+          <label htmlFor="fileInput" className="form-label fw-bold text-light">
             <i className="bi bi-upload me-2 text-success"></i>
             Subir archivo de comandos
           </label>
@@ -43,13 +43,16 @@ const CommandArea = ({ onExecute, isExecuting }) => {
             id="fileInput"
             accept=".txt,.sh"
             onChange={handleFileUpload}
-            className="form-control mb-2"
+            className="form-control bg-secondary text-light border-0"
           />
         </div>
 
         {/* Sección de textarea */}
         <div>
-          <label htmlFor="commandsTextarea" className="form-label fw-bold">
+          <label
+            htmlFor="commandsTextarea"
+            className="form-label fw-bold text-light"
+          >
             <i className="bi bi-pencil-square me-2 text-success"></i>
             Escribir o editar comandos
           </label>
@@ -59,35 +62,37 @@ const CommandArea = ({ onExecute, isExecuting }) => {
             value={commands}
             onChange={(e) => setCommands(e.target.value)}
             placeholder="Ingrese los comandos aquí..."
-            className="form-control font-monospace border-2"
+            className="form-control font-monospace bg-secondary text-light border-0"
           />
         </div>
+
+        {/* Botón */}
         <button
-            type="button"
-            className={`btn btn-lg w-100 text-white fw-bold ${
-              isExecuting || !commands.trim()
-                ? "btn-secondary disabled"
-                : "btn-success"
-            }`}
-            onClick={handleExecute}
-            disabled={isExecuting || !commands.trim()}
-          >
-            {isExecuting ? (
-              <>
-                <span
-                  className="spinner-border spinner-border-sm me-2"
-                  role="status"
-                  aria-hidden="true"
-                ></span>
-                Ejecutando...
-              </>
-            ) : (
-              <>
-                <i className="bi bi-play-fill me-2"></i>
-                Ejecutar
-              </>
-            )}
-          </button>
+          type="button"
+          className={`btn btn-lg w-100 fw-bold ${
+            isExecuting || !commands.trim()
+              ? "btn-secondary disabled text-light"
+              : "btn-success text-white"
+          }`}
+          onClick={handleExecute}
+          disabled={isExecuting || !commands.trim()}
+        >
+          {isExecuting ? (
+            <>
+              <span
+                className="spinner-border spinner-border-sm me-2"
+                role="status"
+                aria-hidden="true"
+              ></span>
+              Ejecutando...
+            </>
+          ) : (
+            <>
+              <i className="bi bi-play-fill me-2"></i>
+              Ejecutar
+            </>
+          )}
+        </button>
       </div>
     </div>
   );
