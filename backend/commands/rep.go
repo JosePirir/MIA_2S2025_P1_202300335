@@ -22,7 +22,7 @@ func ExecuteRep(name string, path string, id string, path_file_ls string) {
 		case "bm_inode":
 			BM_INODE(id, path)
 
-		case "bm_bloc":
+		case "bm_block":
 			BM_BLOCK(id, path)
 
 		case "tree":

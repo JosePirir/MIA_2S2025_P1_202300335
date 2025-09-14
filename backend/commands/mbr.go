@@ -12,6 +12,20 @@ import (
 )
 
 func MBR(id string, imagePath string) {
+	// Función auxiliar para obtener color según tipo de partición
+	colorParticion := func(partType byte) (r, g, b float64, nombre string) {
+		switch partType {
+		case 'P': // Primaria
+			return 0.6, 0.8, 1, "Partición Primaria"
+		case 'E': // Extendida
+			return 0.6, 1, 0.6, "Partición Extendida"
+		case 'L': // Lógica
+			return 1, 0.8, 0.6, "Partición Lógica"
+		default:
+			return 0.9, 0.9, 0.9, "Partición Desconocida"
+		}
+	}
+
 	mp, found := state.GetMountedPartitionByID(id)
 	if !found {
 		fmt.Println("No se encontró la partición con ID:", id)
@@ -33,7 +47,7 @@ func MBR(id string, imagePath string) {
 	}
 
 	const W = 800
-	const H = 1000
+	const H = 1500
 	dc := gg.NewContext(W, H)
 	dc.SetRGB(1, 1, 1)
 	dc.Clear()
@@ -61,7 +75,6 @@ func MBR(id string, imagePath string) {
 		"mbr_dsk_signature": fmt.Sprintf("%d", mbr.Mbr_dsk_signature),
 	}
 	for k, v := range mbrFields {
-		// Fondo de campo
 		dc.SetRGB(0.9, 0.9, 0.9)
 		dc.DrawRectangle(0, float64(y), W, 25)
 		dc.Fill()
@@ -74,12 +87,13 @@ func MBR(id string, imagePath string) {
 	// Particiones del MBR
 	for _, part := range mbr.Mbr_partitions {
 		if part.Part_status != '0' {
+			r, g, b, nombre := colorParticion(part.Part_type)
 			// Encabezado partición
-			dc.SetRGB(0.5, 0, 0.5) // morado
+			dc.SetRGB(r, g, b)
 			dc.DrawRectangle(0, float64(y), W, 25)
 			dc.Fill()
-			dc.SetRGB(1, 1, 1)
-			dc.DrawStringAnchored("Particion", 20, float64(y)+12, 0, 0.5)
+			dc.SetRGB(0, 0, 0)
+			dc.DrawStringAnchored(nombre, 20, float64(y)+12, 0, 0.5)
 			y += 25
 
 			partFields := map[string]string{
@@ -91,7 +105,7 @@ func MBR(id string, imagePath string) {
 				"part_name":   string(part.Part_name[:]),
 			}
 			for k, v := range partFields {
-				dc.SetRGB(1, 0.9, 0.9) // rosa claro
+				dc.SetRGB(r, g, b)
 				dc.DrawRectangle(0, float64(y), W, 25)
 				dc.Fill()
 				dc.SetRGB(0, 0, 0)
@@ -114,12 +128,12 @@ func MBR(id string, imagePath string) {
 						break
 					}
 					if ebr.Part_status != '0' {
-						// Encabezado partición lógica
-						dc.SetRGB(1, 0.6, 0.6) // rosa oscuro
+						r, g, b, nombre = colorParticion('L') // lógica
+						dc.SetRGB(r, g, b)
 						dc.DrawRectangle(0, float64(y), W, 25)
 						dc.Fill()
 						dc.SetRGB(0, 0, 0)
-						dc.DrawStringAnchored("Particion Logica", 20, float64(y)+12, 0, 0.5)
+						dc.DrawStringAnchored(nombre, 20, float64(y)+12, 0, 0.5)
 						y += 25
 
 						ebrFields := map[string]string{
@@ -131,7 +145,7 @@ func MBR(id string, imagePath string) {
 							"part_name":   string(ebr.Part_name[:]),
 						}
 						for k, v := range ebrFields {
-							dc.SetRGB(1, 0.8, 0.8) // rosa más claro
+							dc.SetRGB(r, g, b)
 							dc.DrawRectangle(0, float64(y), W, 25)
 							dc.Fill()
 							dc.SetRGB(0, 0, 0)

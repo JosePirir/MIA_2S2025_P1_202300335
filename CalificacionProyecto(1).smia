@@ -1,6 +1,6 @@
 #Calificacion Proyecto 1
 #2S 2025
-#Cambiar "su_usuario" -> por el usuario de su distribución de linux  
+#Cambiar "josepirir" -> por el usuario de su distribución de linux  
 #Cambiar “35” -> por los ultimos dos digitos de su carnet  
 #----------------- 1. MKDISK  -----------------
 #----------------- MKDISK CON ERROR -----------------
@@ -105,31 +105,28 @@ mount -path=/home/josepirir/Calificacion_MIA/Discos/Disco5.mia -name=Part53
 #-----------------MOUNT-----------------
 # ENLISTAR
 mounted
-##################################################################### FUNCIONA
 #-----------------REPORTES PARTE 1-----------------
 #DISCO 1
 #ERROR ID NO ENCONTRADO
-rep -id=A351 -path=/home/josepirir/Calificacion_MIA/Reportes/p1_rE.jpg -name=mbr
+rep -id=A351 -Path=/home/josepirir/Calificacion_MIA/Reportes/p1_rE.jpg -name=mbr
 #REPORTE DISK
-rep -id=351A -path=/home/josepirir/Calificacion_MIA/Reportes/p1_r1_disk.jpg -name=disk
+rep -id=351A -Path=/home/josepirir/Calificacion_MIA/Reportes/p1_r1_disk.jpg -name=disk
 #REPORTE MBR 
-rep -id=351A -path=/home/josepirir/Calificacion_MIA/Reportes/p1_r2_mbr.jpg -name=mbr
+rep -id=351A -Path=/home/josepirir/Calificacion_MIA/Reportes/p1_r2_mbr.jpg -name=mbr
 #DISCO 3
 #ERROR ID NO ENCONTRADO
-rep -id=353B -path=/home/josepirir/Calificacion_MIA/Reportes/p1_rE_mbr.jpg -name=mbr
+rep -id=353B -Path=/home/josepirir/Calificacion_MIA/Reportes/p1_rE_mbr.jpg -name=mbr
 #REPORTE DISK
-rep -id=351B -path=/home/josepirir/Calificacion_MIA/Reportes/p1_r3_disk.jpg -name=disk
+rep -id=351B -Path=/home/josepirir/Calificacion_MIA/Reportes/p1_r3_disk.jpg -name=disk
 #REPORTE MBR
-rep -id=352B -path=/home/josepirir/Calificacion_MIA/Reportes/p1_r4_disk.jpg -name=mbr
-
-############################################ REPORTE REVISAR
+rep -id=352B -Path=/home/josepirir/Calificacion_MIA/Reportes/p1_r4_disk.jpg -name=mbr
 #DISCO 5
 #ERROR ID NO ENCONTRADO
-rep -id=IDx -path=/home/josepirir/Calificacion_MIA/Reportes/p1_rE_mbr.jpg -name=mbr
+rep -id=IDx -Path=/home/josepirir/Calificacion_MIA/Reportes/p1_rE_mbr.jpg -name=mbr
 #REPORTE DISK
-rep -id=351C -path=/home/josepirir/Calificacion_MIA/Reportes/p1_r5_disk.jpg -name=disk
+rep -id=351C -Path=/home/josepirir/Calificacion_MIA/Reportes/p1_r5_disk.jpg -name=disk
 #REPORTE MBR
-rep -id=351C -path=/home/josepirir/Calificacion_MIA/Reportes/p1_r6_mbr.jpg -name=mbr
+rep -id=351C -Path=/home/josepirir/Calificacion_MIA/Reportes/p1_r6_mbr.jpg -name=mbr
 #-----------------5. MKFS-----------------
 mkfs -type=full -id=351A
 #-----------------PARTE 3-----------------
@@ -162,14 +159,6 @@ mkusr -user="user3" -pass=abc -grp=system
 #-----------------6. CAT-----------------
 cat -file=/users.txt
 #-----------------13. CHGRP-----------------
-chgrp -user="user2" -grp=adm
-#-----------------6. CAT-----------------
-cat -file=/users.txt
-#-----------------12. RMUSR-----------------
-rmusr -user="user2"
-#-----------------6. CAT-----------------
-cat -file=/users.txt
-#-----------------13. CHGRP-----------------
 chgrp -user=user2 -grp=adm
 #-----------------6. CAT-----------------
 cat -file=/users.txt
@@ -180,45 +169,47 @@ cat -file=/users.txt
 #-----------------15. MKDIR-----------------
 mkdir -path=/bin
 # ERROR NO EXISTEN LAS CARPETAS PADRES
-mkdir -path=/home/archivos/archivos 24
+mkdir -path="/home/archivos/archivos 24"
 mkdir -p -path=/home/archivos/user/docs/usac
 mkdir -p -path=/home/archivos/carpeta1/carpeta2/carpeta3/carpeta4/carpeta5
 #-----------------8. LOGOUT-----------------
 logout
 logout #ERROR NO HAY SESION INICIADA
-
-
 #-----------------7. LOGIN-----------------
 #Validar un inicio de sesión para un usuario creado
 login -user=user1 -pass=abc -id=351A
 logout 
 #Regresamos al root 
 login -user=root -pass=123 -id=351A
-
 #-----------------14. MKFILE-----------------
-mkfile -path=/home/archivos/user/docs/usac/Tarea.txt -size=75
+mkfile -path=/home/archivos/user/docs/Tarea.txt -size=75
 mkfile -path=/home/archivos/user/docs/Tarea2.txt -size=768
 #Para este comando hay que crear un archivo en la computadora y en cont poner su primer nombre
 #Crear un archivo txt en su Escritorio llamado NAME
 # Cambiar la ruta del cont por la del archivo NAME.txt que creo
 mkfile -path=/home/archivos/user/docs/Tarea3.txt -size=10 -cont=/home/josepirir/Calificacion_MIA/CONT/NAME.txt
 #ERROR NO EXISTE RUTA
-mkfile -path=/home/archivos/noexiste/b1.txt
+mkfile -path="/home/archivos/noexiste/b1.txt"
 #ERROR NEGATIVO
-mkfile -path=/home/archivos/b1.txt -size=-45
+mkfile -path="/home/archivos/b1.txt" -size=-45
 #RECURSIVO
 mkfile -r -path=/home/archivos/user/docs/usac/archivos/proyectos/fase1/entrada.txt
 #-----------------6. CAT-----------------
 cat -file=/home/archivos/user/docs/Tarea2.txt
 cat -file=/home/archivos/user/docs/Tarea3.txt
 #------------------------REPORTES PARTE 4----------------
-rep -id=351A -path=/home/josepirir/Calificacion_MIA/Reportes/p4_r1_inode.jpg" -name=inode
-rep -id=351A -path=/home/josepirir/Calificacion_MIA/Reportes/p4_r2_block.jpg" -name=block
-rep -id=351A -path=/home/josepirir/Calificacion_MIA/Reportes/p4_r3_bm_inode.txt" -name=bm_inode
-rep -id=351A -path=/home/josepirir/Calificacion_MIA/Reportes/p4_r4_bm_block.txt" -name=bm_block
-rep -id=351A -path=/home/josepirir/Calificacion_MIA/Reportes/p4_r5_sb.jpg" -name=sb
-rep -id=351A -path=/home/josepirir/Calificacion_MIA/Reportes/p4_r6_file.jpg" -path_file_ls=/home/archivos/user/docs/Tarea2.txt  -name=file
-rep -id=351A -path=/home/josepirir/Calificacion_MIA/Reportes/p4_r7_ls.jpg" -path_file_ls=/home/archivos/user/docs -name=ls
-rep -id=351A -path=/home/josepirir/Calificacion_MIA/Reportes/p4_r8_tree.png" -name=tree
+
+rep -id=351A -path=/home/josepirir/Calificacion_MIA/Reportes/p4_r1_inode.jpg -name=inode
+rep -id=351A -path=/home/josepirir/Calificacion_MIA/Reportes/p4_r2_block.jpg -name=block
+rep -id=351A -path=/home/josepirir/Calificacion_MIA/Reportes/p4_r3_bm_inode.txt -name=bm_inode
+rep -id=351A -path=/home/josepirir/Calificacion_MIA/Reportes/p4_r4_bm_block.txt -name=bm_block
+rep -id=351A -path=/home/josepirir/Calificacion_MIA/Reportes/p4_r5_sb.jpg -name=sb
+rep -id=351A -path=/home/josepirir/Calificacion_MIA/Reportes/p4_r6_file.txt -path_file_ls=/home/archivos/user/docs/Tarea2.txt  -name=file
+rep -id=351A -path=/home/josepirir/Calificacion_MIA/Reportes/p4_r7_ls.jpg -path_file_ls=/home/archivos/user/docs -name=ls
+rep -id=351A -path=/home/josepirir/Calificacion_MIA/Reportes/p4_r8_tree.png -name=tree
+rep -id=351A -path=/home/josepirir/Calificacion_MIA/Reportes/p4_r9_mbr.jpg -name=mbr
+rep -id=351A -path=/home/josepirir/Calificacion_MIA/Reportes/p4_r10_disk.jpg -name=disk
+
 #------------------------8. LOGOUT------------------------
 logout
+

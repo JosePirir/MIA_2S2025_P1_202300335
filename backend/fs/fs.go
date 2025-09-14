@@ -169,3 +169,24 @@ func WriteFolderBlock(file *os.File, sb structs.Superblock, blockIndex int32, fb
     file.Seek(offset, 0)
     return binary.Write(file, binary.BigEndian, &fb)
 }
+
+func ReadPointerBlock(file *os.File, sb structs.Superblock, index int32) ([]int32, error) {
+    blockSize := int(sb.S_block_size)
+    offset := int64(sb.S_block_start) + int64(index)*int64(blockSize)
+
+    buf := make([]byte, blockSize)
+    if _, err := file.ReadAt(buf, offset); err != nil {
+        return nil, err
+    }
+
+    // cada apuntador ocupa 4 bytes (int32)
+    count := blockSize / 4
+    pointers := make([]int32, 0, count)
+    for i := 0; i < count; i++ {
+        b := buf[i*4 : (i+1)*4]
+        // convertimos a uint32 y luego a int32 para conservar el valor negativo (ej. -1 -> 0xFFFFFFFF)
+        v := int32(binary.BigEndian.Uint32(b))
+        pointers = append(pointers, v)
+    }
+    return pointers, nil
+}
