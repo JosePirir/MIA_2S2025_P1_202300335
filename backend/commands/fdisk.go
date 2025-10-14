@@ -11,7 +11,7 @@ import (
 
 // ExecuteFdisk es el punto de entrada principal para el comando fdisk.
 // Decide qué tipo de partición crear y llama a la función correspondiente.
-func ExecuteFdisk(path, name, unit, typeStr, fit string, size int64) {
+func ExecuteFdisk(path, name, unit, typeStr, fit string, size int64, delete string, add int64) {
 	// 1. Abrir el archivo del disco en modo lectura/escritura
 	file, err := os.OpenFile(path, os.O_RDWR, 0644)
 	if err != nil {
@@ -32,6 +32,19 @@ func ExecuteFdisk(path, name, unit, typeStr, fit string, size int64) {
 		fmt.Printf("Error al leer el MBR del disco: %v\n", err)
 		return
 	}
+
+	// Si se solicita eliminar una partición
+	if delete != "" {
+		deletePartition(file, &mbr, name, delete)
+		return
+	}
+
+	// Si se solicita redimensionar una partición
+	if add != 0 {
+		resizePartition(file, &mbr, name, add, unit)
+		return
+	}
+
 
 	// 3. Calcular el tamaño de la nueva partición en bytes
 	var partitionSize int64
@@ -317,4 +330,225 @@ func createLogical(file *os.File, mbr *structs.MBR, name, fit string, size int64
 	}
 
 	fmt.Printf("Partición lógica '%s' creada exitosamente.\n", name)
+}
+
+// --- Eliminar particiones ---
+func deletePartition(file *os.File, mbr *structs.MBR, name, deleteType string) {
+	// 1. Buscar la partición por nombre (primaria o extendida)
+	for i := 0; i < 4; i++ {
+		partName := strings.Trim(string(mbr.Mbr_partitions[i].Part_name[:]), "\x00")
+		if partName == name && mbr.Mbr_partitions[i].Part_status == '1' {
+			//fmt.Printf("¿Seguro que deseas eliminar la partición '%s'? (s/n): ", name)
+			//var confirm string
+			//fmt.Scanln(&confirm)
+			//if strings.ToLower(confirm) != "s" {
+			//	fmt.Println("Operación cancelada.")
+			//	return
+			//}
+
+			switch strings.ToLower(deleteType) {
+			case "fast":
+				// Solo marcar como libre
+				mbr.Mbr_partitions[i].Part_status = '0'
+
+			case "full":
+				// Marcar como libre y limpiar con ceros
+				mbr.Mbr_partitions[i].Part_status = '0'
+				zeroBytes := make([]byte, mbr.Mbr_partitions[i].Part_s)
+				_, err := file.WriteAt(zeroBytes, mbr.Mbr_partitions[i].Part_start)
+				if err != nil {
+					fmt.Printf("Error al limpiar la partición: %v\n", err)
+					return
+				}
+
+			default:
+				fmt.Printf("Error: tipo de eliminación '%s' no válido. Usa 'fast' o 'full'.\n", deleteType)
+				return
+			}
+
+			// Si la partición eliminada era extendida, borrar las lógicas dentro
+			if mbr.Mbr_partitions[i].Part_type == 'E' {
+				deleteLogicalInside(file, mbr.Mbr_partitions[i])
+			}
+
+			err := utils.WriteMBR(file, mbr)
+			if err != nil {
+				fmt.Printf("Error al actualizar el MBR: %v\n", err)
+				return
+			}
+
+			fmt.Printf("Partición '%s' eliminada exitosamente con método '%s'.\n", name, deleteType)
+			return
+		}
+	}
+
+	// 2. Si no se encontró, buscar dentro de la extendida (particiones lógicas)
+	for i := 0; i < 4; i++ {
+		if mbr.Mbr_partitions[i].Part_type == 'E' && mbr.Mbr_partitions[i].Part_status == '1' {
+			currentEBR, err := utils.ReadEBR(file, mbr.Mbr_partitions[i].Part_start)
+			if err != nil {
+				continue
+			}
+
+			var prevEBR structs.EBR
+			var prevAddress int64 = -1
+
+			for {
+				partName := strings.Trim(string(currentEBR.Part_name[:]), "\x00")
+				if partName == name && currentEBR.Part_status == '1' {
+					//fmt.Printf("¿Seguro que deseas eliminar la partición lógica '%s'? (s/n): ", name)
+					//var confirm string
+					//fmt.Scanln(&confirm)
+					//if strings.ToLower(confirm) != "s" {
+					//	fmt.Println("Operación cancelada.")
+					//	return
+					//}
+
+					switch strings.ToLower(deleteType) {
+					case "fast":
+						currentEBR.Part_status = '0'
+					case "full":
+						currentEBR.Part_status = '0'
+						zeroBytes := make([]byte, currentEBR.Part_s)
+						_, err := file.WriteAt(zeroBytes, currentEBR.Part_start)
+						if err != nil {
+							fmt.Printf("Error al limpiar la partición lógica: %v\n", err)
+							return
+						}
+					default:
+						fmt.Printf("Error: tipo de eliminación '%s' no válido. Usa 'fast' o 'full'.\n", deleteType)
+						return
+					}
+
+					// Reenlazar EBRs si no es el primero
+					if prevAddress != -1 {
+						prevEBR.Part_next = currentEBR.Part_next
+						err = utils.WriteEBR(file, &prevEBR, prevAddress)
+						if err != nil {
+							fmt.Printf("Error al actualizar el EBR anterior: %v\n", err)
+							return
+						}
+					}
+
+					// Guardar el cambio del EBR actual
+					err = utils.WriteEBR(file, &currentEBR, currentEBR.Part_start-ebrsz())
+					if err != nil {
+						fmt.Printf("Error al actualizar el EBR eliminado: %v\n", err)
+						return
+					}
+
+					fmt.Printf("Partición lógica '%s' eliminada exitosamente con método '%s'.\n", name, deleteType)
+					return
+				}
+
+				if currentEBR.Part_next == -1 {
+					break
+				}
+				prevEBR = currentEBR
+				prevAddress = currentEBR.Part_next
+				currentEBR, err = utils.ReadEBR(file, currentEBR.Part_next)
+				if err != nil {
+					break
+				}
+			}
+		}
+	}
+
+	fmt.Printf("Error: no se encontró la partición con nombre '%s'.\n", name)
+}
+
+// --- Elimina las particiones lógicas dentro de una extendida ---
+func deleteLogicalInside(file *os.File, extended structs.Partition) {
+	currentEBR, err := utils.ReadEBR(file, extended.Part_start)
+	if err != nil {
+		return
+	}
+
+	for {
+		if currentEBR.Part_status == '1' {
+			currentEBR.Part_status = '0'
+			zeroBytes := make([]byte, currentEBR.Part_s)
+			file.WriteAt(zeroBytes, currentEBR.Part_start)
+			utils.WriteEBR(file, &currentEBR, currentEBR.Part_start-int64(binary.Size(structs.EBR{})))
+		}
+		if currentEBR.Part_next == -1 {
+			break
+		}
+		currentEBR, err = utils.ReadEBR(file, currentEBR.Part_next)
+		if err != nil {
+			break
+		}
+	}
+	fmt.Println("Todas las particiones lógicas dentro de la extendida fueron eliminadas.")
+}
+
+// Tamaño del EBR
+func ebrsz() int64 {
+	return int64(binary.Size(structs.EBR{}))
+}
+
+
+func resizePartition(file *os.File, mbr *structs.MBR, name string, add int64, unit string) {
+	fmt.Printf("Iniciando modificación de tamaño para la partición '%s'...\n", name)
+
+	// 1. Calcular tamaño en bytes según unidad
+	var bytesToAdd int64
+	switch strings.ToLower(unit) {
+	case "b":
+		bytesToAdd = add
+	case "m":
+		bytesToAdd = add * 1024 * 1024
+	default: // "k" por defecto
+		bytesToAdd = add * 1024
+	}
+
+	// 2. Buscar la partición
+	for i := 0; i < 4; i++ {
+		part := &mbr.Mbr_partitions[i]
+		partName := strings.Trim(string(part.Part_name[:]), "\x00")
+		if partName == name && part.Part_status == '1' {
+			// --- Caso 1: reducir tamaño ---
+			if bytesToAdd < 0 {
+				if part.Part_s+bytesToAdd <= 0 {
+					fmt.Println("Error: la reducción excede el tamaño de la partición.")
+					return
+				}
+				part.Part_s += bytesToAdd
+				fmt.Printf("Se redujo la partición '%s' en %d bytes.\n", name, -bytesToAdd)
+			} else {
+				// --- Caso 2: aumentar tamaño ---
+				endOfPartition := part.Part_start + part.Part_s
+				freeSpaces := utils.GetFreeSpaces(mbr)
+				hasSpace := false
+
+				for _, fs := range freeSpaces {
+					// Verificar si el espacio libre empieza justo después de la partición
+					if fs.Start == endOfPartition && fs.Size >= bytesToAdd {
+						hasSpace = true
+						break
+					}
+				}
+
+				if !hasSpace {
+					fmt.Println("Error: no hay suficiente espacio libre contiguo para expandir la partición.")
+					return
+				}
+
+				part.Part_s += bytesToAdd
+				fmt.Printf("Se aumentó la partición '%s' en %d bytes.\n", name, bytesToAdd)
+			}
+
+			// 3. Escribir los cambios al MBR
+			err := utils.WriteMBR(file, mbr)
+			if err != nil {
+				fmt.Printf("Error al guardar los cambios en el MBR: %v\n", err)
+				return
+			}
+
+			fmt.Printf("Tamaño final de la partición '%s': %d bytes.\n", name, part.Part_s)
+			return
+		}
+	}
+
+	fmt.Printf("Error: no se encontró la partición con nombre '%s'.\n", name)
 }

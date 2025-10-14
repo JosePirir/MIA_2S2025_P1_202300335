@@ -1,0 +1,18 @@
+go run main.go
+
+fdisk -type=P -unit=b -name=Part11 -size=10485760 -path=/home/josepirir/Calificacion_MIA/Discos/Disco1.mia -fit=BF
+
+# FDISK delete
+fdisk -delete=fast -name=Part11 -path=/home/josepirir/Calificacion_MIA/Discos/Disco1.mia
+fdisk -delete=full -name=Part11 -path=/home/josepirir/Calificacion_MIA/Discos/Disco1.mia
+
+# FDISK add
+fdisk -add=-500 -unit=K -path=/home/josepirir/Calificacion_MIA/Discos/Disco1.mia -name=Part11
+fdisk -add=1 -unit=M -path=/home/josepirir/Calificacion_MIA/Discos/Disco1.mia -name=Part11
+
+
+mount -path=/home/josepirir/Calificacion_MIA/Discos/Disco1.mia -name=Part11
+
+# UNMOUNT
+
+unmount -id=351A

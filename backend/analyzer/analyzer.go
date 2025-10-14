@@ -124,16 +124,17 @@ func executeCommand(commandLine string) string {
 			unit := fdiskCmd.String("unit", "k", "Unidad del tamaño (b/k/m).")
 			typeStr := fdiskCmd.String("type", "p", "Tipo de partición (p/e/l).")
 			fit := fdiskCmd.String("fit", "wf", "Tipo de ajuste (bf/ff/wf).")
+			delete := fdiskCmd.String("delete", "", "Tipo de delete (fast/full).")
+			add := fdiskCmd.Int64("add", 0, "Tamaño agregar o quitar de una particion.")
 
 			fdiskCmd.Parse(args)
 
 			// Validar parámetros obligatorios
-			if *path == "" || *name == "" || *size <= 0 {
-				fmt.Println("Error: los parámetros -path, -name y -size son obligatorios para fdisk.")
-				
+			if *path == "" || *name == "" {
+				fmt.Println("Error: los parámetros -path, -name y -size son obligatorios para fdisk.")				
 			}
 
-			commands.ExecuteFdisk(*path, *name, *unit, *typeStr, *fit, *size)
+			commands.ExecuteFdisk(*path, *name, *unit, *typeStr, *fit, *size, *delete, *add)
 		// --- FIN DE LA MODIFICACIÓN ---
 		case "mount":
 			mountCmd := flag.NewFlagSet("mount", flag.ContinueOnError)
@@ -146,6 +147,16 @@ func executeCommand(commandLine string) string {
 				
 			}
 			commands.ExecuteMount(*path, *name)
+
+		case "unmount":
+			unmountCmd := flag.NewFlagSet("unmounted", flag.ContinueOnError)
+			id := unmountCmd.String("id", "", "ID de la particion.")
+			unmountCmd.Parse(args)
+
+			if *id == "" {
+				fmt.Println("Error: el parametro -id es obligatorio.")
+			}
+			commands.ExecuteUnmount(*id)
 
 		case "mounted":
 			commands.ExecuteMounted()
