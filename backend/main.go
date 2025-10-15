@@ -90,24 +90,30 @@ func enableCORS(next http.Handler) http.Handler {
 
 // Manejador para el endpoint /execute
 func executeHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+    switch r.Method {
+    case http.MethodGet:
+        // Respuesta simple para pruebas remotas
+        w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(map[string]string{
+            "message": "La API funciona! Usa POST con JSON para ejecutar comandos",
+        })
+        return
+    case http.MethodPost:
+        // Tu lógica original
+        var req ExecRequest
+        if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+            http.Error(w, "invalid json: "+err.Error(), http.StatusBadRequest)
+            return
+        }
 
-	var req ExecRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid json: "+err.Error(), http.StatusBadRequest)
-		return
-	}
+        log.Printf("Recibidos comandos: %s", req.Commands)
 
-	log.Printf("Recibidos comandos: %s", req.Commands)
+        output := analyzer.ProcessCommands(req.Commands)
 
-	// En lugar de ejecutar un binario externo, usamos nuestro analizador
-	output := analyzer.ProcessCommands(req.Commands)
-
-	// Devolvemos la salida
-	resp := ExecResponse{Output: output}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+        resp := ExecResponse{Output: output}
+        w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(resp)
+    default:
+        http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+    }
 }
