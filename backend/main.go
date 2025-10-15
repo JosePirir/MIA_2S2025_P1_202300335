@@ -67,7 +67,7 @@ func startServer() {
 	fmt.Println("Servidor ejecutando en http://localhost:3001")
 	fmt.Println("Presiona Ctrl+C para detener")
 
-	log.Fatal(http.ListenAndServe(":3001", corsHandler))
+	log.Fatal(http.ListenAndServe("0.0.0.0:3001", corsHandler))
 }
 
 // Middleware para habilitar CORS

@@ -3,10 +3,10 @@ package commands
 import (
 	"encoding/binary"
 	"fmt"
-	"proyecto1/state"
-	"proyecto1/structs"
 	"math"
 	"os"
+	"proyecto1/state"
+	"proyecto1/structs"
 	"strings"
 	"time"
 	"unsafe"
@@ -37,11 +37,25 @@ func ExecuteMkfs(id, formatType, fsType string) {
 	sizeOfSuperblock := int64(binary.Size(structs.Superblock{}))
 	sizeOfInode := int64(binary.Size(structs.Inode{}))
 	sizeOfBlock := int64(binary.Size(structs.FileBlock{}))
+	sizeOfJournaling := int64(50) // Tamaño fijo para journaling por estructura
 
 	// --- CÁLCULO DEL NÚMERO DE INODOS ---
 	// Se calcula el número de inodos 'n' que caben en la partición.
 	availableSpace := float64(mountedPartition.Size - sizeOfSuperblock)
-	structureUnitSize := float64(sizeOfInode + (3 * sizeOfBlock))
+	//tructureUnitSize := float64(sizeOfInode + (3 * sizeOfBlock))
+
+	var structureUnitSize float64
+	var n float64
+
+	if fsType == "3fs" {
+		// EXT3: considerar journaling
+		structureUnitSize = float64(sizeOfJournaling + sizeOfInode + (3 * sizeOfBlock))
+	} else {
+		// EXT2: igual que antes
+		structureUnitSize = float64(sizeOfInode + (3 * sizeOfBlock))
+	}
+
+	n = math.Floor(availableSpace / structureUnitSize)
 
 	// --- INICIO DE BLOQUE DE DEPURACIÓN ---
 	fmt.Println("------------------- particion INFO -------------------")
@@ -60,7 +74,7 @@ func ExecuteMkfs(id, formatType, fsType string) {
 		return
 	}
 
-	n := math.Floor(availableSpace / structureUnitSize)
+	//n := math.Floor(availableSpace / structureUnitSize)
 	fmt.Printf("Número de Inodos Calculado (n):                 %.f\n", n) // Imprimir n también
 	fmt.Println("--------------------------------------------------")
 
@@ -92,6 +106,13 @@ func ExecuteMkfs(id, formatType, fsType string) {
 	// --- 5. CÁLCULO DE PUNTEROS DE INICIO ---
 	// Se calculan las posiciones exactas (offsets en bytes) donde comenzará cada sección.
 	partitionStart := mountedPartition.Start
+
+	currentOffset := partitionStart + sizeOfSuperblock
+
+	if fsType == "3fs" {
+		// Reservar espacio de journaling
+		currentOffset += sizeOfJournaling * int64(n)
+	}
 	superbloque.S_bm_inode_start = int32(partitionStart + sizeOfSuperblock)
 	superbloque.S_bm_block_start = superbloque.S_bm_inode_start + superbloque.S_inodes_count
 	superbloque.S_inode_start = superbloque.S_bm_block_start + superbloque.S_blocks_count
@@ -114,6 +135,13 @@ func ExecuteMkfs(id, formatType, fsType string) {
 		return
 	}
 	fmt.Println("Superbloque creado y escrito.")
+
+	if fsType == "3fs" {
+		journaling := make([]byte, sizeOfJournaling*int64(n))
+		file.Seek(partitionStart+sizeOfSuperblock, 0)
+		binary.Write(file, binary.BigEndian, &journaling)
+		fmt.Println("Journaling inicializado (3FS).")
+	}
 
 	// --- 8. ESCRITURA DE BITMAPS Y BLOQUES (FORMATEO FULL) ---
 	// Se crean slices de bytes (arrays) para los bitmaps, inicializados en cero.
