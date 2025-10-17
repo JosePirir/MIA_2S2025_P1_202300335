@@ -217,6 +217,32 @@ func executeCommand(commandLine string) string {
 
 			commands.ExecuteRename(*path, *name)
 
+		case "copy":
+			copyCmd := flag.NewFlagSet("copy", flag.ContinueOnError)
+			path := copyCmd.String("path", "", "Destino que se copiará.")
+			destino := copyCmd.String("destino", "", "Destino del archivo.")
+
+			copyCmd.Parse(args)
+
+			if *path == "" || *destino == "" {
+				fmt.Println("Error: Los parametros -path y -destino son obligatorios.")
+			}
+
+			commands.ExecuteCopy(*path, *destino)
+
+		case "move":
+			moveCmd := flag.NewFlagSet("copy", flag.ContinueOnError)
+			path := moveCmd.String("path", "", "Destino que se copiará.")
+			destino := moveCmd.String("destino", "", "Destino del archivo.")
+
+			moveCmd.Parse(args)
+
+			if *path == "" || *destino == "" {
+				fmt.Println("Error: Los parametros -path y -destino son obligatorios.")
+			}
+
+			commands.ExecuteMove(*path, *destino)
+
 		case "login":
 			loginCmd := flag.NewFlagSet("login", flag.ContinueOnError)
 			user := loginCmd.String("user", "", "Usuario que va a iniciar sesion.")

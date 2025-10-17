@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 	"unsafe"
-
+	"strconv"
 	"proyecto1/fs"
 	"proyecto1/state"
 	"proyecto1/structs"
@@ -91,7 +91,23 @@ func tienePermisoEscritura(inode structs.Inode, uid, gid int32) bool {
 	return otherPerm&2 != 0
 }
 
+func tienePermisoLectura(inode structs.Inode, uid int32, gid int32) bool {
+	permStr := strconv.Itoa(int(inode.I_perm))
+	if len(permStr) < 3 {
+		permStr = "0" + permStr
+	}
+	userPerm, _ := strconv.Atoi(string(permStr[0]))
+	groupPerm, _ := strconv.Atoi(string(permStr[1]))
+	otherPerm, _ := strconv.Atoi(string(permStr[2]))
 
+	if inode.I_uid == uid {
+		return (userPerm & 4) != 0 // bit 4 = lectura
+	}
+	if inode.I_gid == gid {
+		return (groupPerm & 4) != 0
+	}
+	return (otherPerm & 4) != 0
+}
 
 // ================= Ejecutables =================
 
