@@ -179,6 +179,44 @@ func executeCommand(commandLine string) string {
 			// Ejecuta la lógica del comando mkfs.
 			commands.ExecuteMkfs(*id, *typeStr, *fs)
 
+		case "remove":
+			removeCmd := flag.NewFlagSet("remove", flag.ContinueOnError)
+			path := removeCmd.String("remove", "", "Eliminar un archivo.")
+
+			removeCmd.Parse(args)
+
+			if *path == "" {
+				fmt.Println("Error: El parametro -path es obligatorio.")
+			}
+
+			commands.ExecuteRemove(*path)
+
+		case "edit":
+			editCmd := flag.NewFlagSet("edit", flag.ContinueOnError)
+			path := editCmd.String("path", "", "Path que se editará.")
+			contenido := editCmd.String("contenido", "", "Contenido que será agregado.")
+
+			editCmd.Parse(args)
+
+			if *path == "" || *contenido == "" {
+				fmt.Println("Error: Los parametros -path y -contenido son obligatorios para edit.")
+			}
+
+			commands.ExecuteEdit(*path, *contenido)
+
+		case "rename":
+			renameCmd := flag.NewFlagSet("rename", flag.ContinueOnError)
+			path := renameCmd.String("path", "", "Path que se renombrará.")
+			name := renameCmd.String("name", "", "Name que se utilizará.")
+
+			renameCmd.Parse(args) 
+
+			if *path == "" || *name == "" {
+				fmt.Println("Error: Los parametros -path y -name son obligratorios.")
+			}
+
+			commands.ExecuteRename(*path, *name)
+
 		case "login":
 			loginCmd := flag.NewFlagSet("login", flag.ContinueOnError)
 			user := loginCmd.String("user", "", "Usuario que va a iniciar sesion.")

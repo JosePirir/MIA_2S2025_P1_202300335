@@ -140,10 +140,10 @@ func MarkBlockAsUsed(file *os.File, sb structs.Superblock, index int32) error {
     return err
 }
 
-func MarkBlockAsFree(file *os.File, sb structs.Superblock, index int32) error {
-    _, err := file.WriteAt([]byte{0}, int64(sb.S_bm_block_start)+int64(index))
-    return err
-}
+//func MarkBlockAsFree(file *os.File, sb structs.Superblock, index int32) error {
+//    _, err := file.WriteAt([]byte{0}, int64(sb.S_bm_block_start)+int64(index))
+//    return err
+//}
 
 func FindFreeInode(file *os.File, sb structs.Superblock) (int32, error) {
     bitmap := make([]byte, sb.S_inodes_count)
@@ -189,4 +189,28 @@ func ReadPointerBlock(file *os.File, sb structs.Superblock, index int32) ([]int3
         pointers = append(pointers, v)
     }
     return pointers, nil
+}
+
+// MarkInodeAsFree marca un inodo como libre en el bitmap de inodos.
+func MarkInodeAsFree(file *os.File, sb structs.Superblock, inodeIndex int32, sbStart int64) {
+	bitmapPos := int64(sb.S_bm_inode_start) + int64(inodeIndex)
+	file.Seek(bitmapPos, 0)
+	file.Write([]byte{0}) // 0 = libre
+	sb.S_free_inodes_count++
+	UpdateSuperblock(file, sb, sbStart)
+}
+
+// MarkBlockAsFree marca un bloque como libre en el bitmap de bloques.
+func MarkBlockAsFree(file *os.File, sb structs.Superblock, blockIndex int32, sbStart int64) {
+	bitmapPos := int64(sb.S_bm_block_start) + int64(blockIndex)
+	file.Seek(bitmapPos, 0)
+	file.Write([]byte{0}) // 0 = libre
+	sb.S_free_blocks_count++
+	UpdateSuperblock(file, sb, sbStart)
+}
+
+// UpdateSuperblock reescribe el superbloque actualizado en disco.
+func UpdateSuperblock(file *os.File, sb structs.Superblock, sbStart int64) {
+	file.Seek(sbStart, 0)
+	binary.Write(file, binary.BigEndian, &sb)
 }
