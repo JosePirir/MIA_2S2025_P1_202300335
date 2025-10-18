@@ -248,6 +248,8 @@ func executeCommand(commandLine string) string {
 			path := findCmd.String("path", "", "Lugar donde se realizará la busqueda.")
 			name := findCmd.String("name", "", "Busqueda a realizar.")
 
+			findCmd.Parse(args)
+
 			if *path == "" || *name == "" {
 				fmt.Println("Error: Los parametros -path y -name son obligatorios.")
 			}
@@ -260,13 +262,27 @@ func executeCommand(commandLine string) string {
 			r := chownCmd.Bool("r", false, "Indica si sera recurivo.")
 			usuario := chownCmd.String("usuario", "", "Nombre del nuevo propietario.")
 
-			chownCmd.Parse(os.Args[2:])
-			
+			chownCmd.Parse(args)
+
 			if *path == "" || *usuario == "" {
 				fmt.Println("Error: Los parametros -path y -usuario son obligatorios.")
 			}
 
 			commands.ExecuteChown(*path, *r, *usuario)
+
+		case "chmod":
+			chmodCmd := flag.NewFlagSet("chmod", flag.ContinueOnError)
+			path := chmodCmd.String("path", "", "Ruta a la que se cambiaran los permisos.")
+			r := chmodCmd.Bool("r", false, "Indica si el cambio será recursivo en las carpetas.")
+			ugo := chmodCmd.String("ugo", "", "Indica los permisos que se otorgarán.")
+			
+			chmodCmd.Parse(args)
+
+			if *path == "" || *ugo == "" {
+				fmt.Println("Error: Los parametros -path y -ugo son obligatorios para chmod.")
+			}
+
+			commands.ExecuteChmod(*path, *ugo, *r)
 
 		case "login":
 			loginCmd := flag.NewFlagSet("login", flag.ContinueOnError)
