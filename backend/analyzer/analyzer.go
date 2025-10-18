@@ -243,6 +243,31 @@ func executeCommand(commandLine string) string {
 
 			commands.ExecuteMove(*path, *destino)
 
+		case "find":
+			findCmd := flag.NewFlagSet("find", flag.ContinueOnError)
+			path := findCmd.String("path", "", "Lugar donde se realizará la busqueda.")
+			name := findCmd.String("name", "", "Busqueda a realizar.")
+
+			if *path == "" || *name == "" {
+				fmt.Println("Error: Los parametros -path y -name son obligatorios.")
+			}
+
+			commands.ExecuteFind(*path, *name)
+
+		case "chown":
+			chownCmd := flag.NewFlagSet("chown", flag.ContinueOnError)
+			path := chownCmd.String("path", "", "Ruta en la que se encuentra el archivo o carpeta.")
+			r := chownCmd.Bool("r", false, "Indica si sera recurivo.")
+			usuario := chownCmd.String("usuario", "", "Nombre del nuevo propietario.")
+
+			chownCmd.Parse(os.Args[2:])
+			
+			if *path == "" || *usuario == "" {
+				fmt.Println("Error: Los parametros -path y -usuario son obligatorios.")
+			}
+
+			commands.ExecuteChown(*path, *r, *usuario)
+
 		case "login":
 			loginCmd := flag.NewFlagSet("login", flag.ContinueOnError)
 			user := loginCmd.String("user", "", "Usuario que va a iniciar sesion.")
