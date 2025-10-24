@@ -431,6 +431,15 @@ func executeCommand(commandLine string) string {
 
 			commands.ExecuteRep(*name, *path, *id, *path_file_ls)
 
+		case "journal":
+			journalCmd := flag.NewFlagSet("journal", flag.ContinueOnError)
+			id := journalCmd.String("id", "", "ID de la partición a consultar journaling.")
+			journalCmd.Parse(args)
+
+			if *id == "" {
+				fmt.Println("Error: el parámetro -id es obligatorio para journal.")
+			}
+			commands.ShowJournal(*id)
 
 		default:
 			fmt.Printf("Comando '%s' no reconocido.\n", command)

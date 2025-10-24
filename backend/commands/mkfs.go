@@ -141,6 +141,19 @@ func ExecuteMkfs(id, formatType, fsType string) {
 		file.Seek(partitionStart+sizeOfSuperblock, 0)
 		binary.Write(file, binary.BigEndian, &journaling)
 		fmt.Println("Journaling inicializado (3FS).")
+		// Inicializar el journaling con entradas vacías.
+        fmt.Println("Inicializando journaling para 3FS...")
+        journalingStart := partitionStart + sizeOfSuperblock
+        file.Seek(journalingStart, 0)
+
+        emptyEntry := structs.JournalEntry{}
+        for i := int64(0); i < int64(n); i++ {
+            if err := binary.Write(file, binary.BigEndian, &emptyEntry); err != nil {
+                fmt.Println("Error al inicializar el journaling:", err)
+                return
+            }
+        }
+        fmt.Println("Journaling inicializado correctamente.")
 	}
 
 	// --- 8. ESCRITURA DE BITMAPS Y BLOQUES (FORMATEO FULL) ---
