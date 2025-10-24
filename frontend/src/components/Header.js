@@ -1,16 +1,22 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
-const Header = () => {
+function Header() {
   return (
-    <nav className="navbar navbar-dark bg-dark">
-      <div className="container-fluid">
-        <span className="navbar-brand mb-0 h1">
-          <i className="bi bi-hdd-stack me-2"></i>
-          Sistema de Archivos - MIA - Jose Pirir - 202300335
-        </span>
+    <header className="py-3 border-bottom mb-3">
+      <div className="container d-flex justify-content-between align-items-center">
+        <h1 className="h4 text-light mb-0">Mi FS - Interfaz</h1>
+        <div>
+          <Link to="/login" className="btn btn-outline-light me-2">
+            Iniciar sesión
+          </Link>
+          <Link to="/discos" className="btn btn-outline-light">
+            Discos
+          </Link>
+        </div>
       </div>
-    </nav>
+    </header>
   );
-};
+}
 
 export default Header;
