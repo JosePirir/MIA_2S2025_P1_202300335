@@ -1,9 +1,15 @@
 package structs
 
-// ContentEntry representa una entrada en un bloque de directorio (nombre -> inodo).
+const NAME_MAX = 64 // ajustar según lo que necesites
+
+// Asegura que el FileBlock sea mayor o igual al tamaño del FolderBlock.
+// Cada ContentEntry ocupa NAME_MAX bytes + 4 bytes para B_inodo.
+// FolderBlock tiene 4 entradas, así que reservar suficiente espacio para FileBlock.
+const FILE_BLOCK_SIZE = 4*NAME_MAX + 16
+
 type ContentEntry struct {
-	B_name  [12]byte // Nombre del archivo o carpeta
-	B_inodo int32    // Apuntador al inodo
+	B_name  [NAME_MAX]byte // Nombre del archivo o carpeta (ampliado)
+	B_inodo int32          // Apuntador al inodo
 }
 
 // FolderBlock es la estructura para un bloque de directorio.
@@ -12,6 +18,7 @@ type FolderBlock struct {
 }
 
 // FileBlock es la estructura para un bloque de contenido de archivo.
+// Aumentado para que su tamaño >= FolderBlock y evitar truncamientos.
 type FileBlock struct {
-	B_content [64]byte
+	B_content [FILE_BLOCK_SIZE]byte
 }

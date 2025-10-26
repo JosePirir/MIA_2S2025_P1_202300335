@@ -192,9 +192,9 @@ mkdir -p -path=/home/archivos/manuales
 
 # Ir a la interfaz web y:
 # 1. Hacer logout (botón "Cerrar Sesión")
-# 2. Hacer login con usuario: user1, contraseña: pass353, partición: 351A
+# 2. Hacer login con usuario: user1, contraseña: pass123, partición: 122A
 # 3. Hacer logout nuevamente
-# 4. Hacer login con usuario: root, contraseña: 353, partición: 351A
+# 4. Hacer login con usuario: root, contraseña: 123, partición: 122A
 
 #  15: CREAR ARCHIVOS CON MKFILE
 
@@ -206,10 +206,10 @@ mkfile -path=/home/user1/archivo1.txt -size=50
 mkfile -path=/home/user1/archivo2.txt -size=100
 
 # Con contenido copiado desde archivo existente
-mkfile -path=/home/user1/readme.txt -cont=/home/josepirir/fuente.txt
+mkfile -path=/home/user1/readme.txt -contenido=/home/fuente.txt
 
 # Con contenido desde archivo existente
-mkfile -path=/home/archivos/documento.txt -cont=/home/josepirir/fuente.txt
+mkfile -path=/home/archivos/documento.txt -contenido=/home/fuente.txt
 
 # ERROR: No existe ruta
 mkfile -path=/noexiste/archivo.txt -size=50
@@ -220,19 +220,16 @@ mkfile -path=/home/archivo.txt -size=-45
 # Con flag recursivo
 mkfile -r -path=/home/user1/proyectos/codigo/main.txt -size=75
 
-
 #  16: LEER ARCHIVOS CON CAT
 
-cat -file=/home/user1/readme.txt
-cat -file=/home/archivos/documento.txt
-cat -file=/home/archivos/documento.tx
-# revisar este
-cat -file=/home/user1/archivo1.txt
+cat -file1=/home/user1/readme.txt
+cat -file1=/home/archivos/documento.txt
+cat -file1=/home/user1/archivo1.txt
 
 #  17 y 18: JOURNALING con solo EXT3
 
-# Ver journal de partición EXT3 (352A es EXT3)
-journal -id=352A
+# Ver journal de partición EXT3 (122A es EXT3)
+journaling -id=122A
 
 #  19:  CHMOD
 
@@ -248,15 +245,13 @@ chmod -path=/home/user1/readme.txt -ugo=999
 #  20:  CHOWN
 
 # Cambiar propietario de archivo
-chown -path=/home/user1/archivo1.txt -usuario=admin1
-chown -path=/home/user1/archivo1conu -usuario=admin1
+chown -path=/home/user1/archivo1.txt -user=admin1
 
 # Cambiar propietario de carpeta recursivo
-chown -path=/home/user1/documentos -usuario=user1 -r
+chown -path=/home/user1/documentos -user=user1 -r
 
 # ERROR: Usuario no existe
-chown -path=/home/user1/readme.txt -usuario=noexiste
-
+chown -path=/home/user1/readme.txt -user=noexiste
 
 #  21:  FIND
 
@@ -282,9 +277,6 @@ rename -path=/home/user1/documentos -name=docs_user1
 
 # ERROR: Nombre ya existe
 rename -path=/home/user1/archivo2.txt -name=readme.txt
-#PENDIENTE
-
-# ------------------------------------------------------------------------------------------------------------------------------
 
 #  23:  COPY
 
@@ -294,8 +286,6 @@ copy -path=/home/user1/readme.txt -destino=/home/user1/readme_copia.txt
 # ERROR: Destino no existe
 copy -path=/home/user1/readme.txt -destino=/noexiste/copia.txt
 
-########## COPY PENDIENTE
-
 #  24:  MOVE
 
 # Mover archivo (archivo2 ya fue renombrado, usar otro)
@@ -304,20 +294,16 @@ move -path=/home/user1/readme_copia.txt -destino=/home/readme_movido.txt
 # ERROR: Origen no existe
 move -path=/noexiste.txt -destino=/home/destino.txt
 
-########## MOVE PENDIENTE
-
 #  25:  EDIT
 
 # Editar archivo con contenido desde archivo existente
 edit -path=/home/user1/readme.txt -contenido=/home/fuente.txt
 
 # Verificar cambios
-cat -file=/home/user1/readme.txt
+cat -file1=/home/user1/readme.txt
 
 # ERROR: Archivo no existe
 edit -path=/noexiste.txt -contenido=/home/fuente.txt
-
-########## EDIT PENDIENTE
 
 #  26:  REMOVE
 
@@ -338,24 +324,24 @@ remove -path=/noexiste.txt
 
 #  27: COMANDOS CRÍTICOS - LOSS Y RECOVERY
 
-# Simular pérdida del sistema (solo EXT3 - usar 352A)
-loss -id=352A
+# Simular pérdida del sistema (solo EXT3 - usar 122A)
+loss -id=122A
 
 # Ver que el journal sigue disponible
-journaling -id=352A
+journaling -id=122A
 
 # Recuperar el sistema desde journal
-recovery -id=352A
+recovery -id=122A
 
 # DESMONTAR PARTICIONES
 
 # Primero hacer logout desde la interfaz web
 
-# Desmontar todas las particiones montadas (352A, 353A, 351B que es PartB1, 351C)
-unmount -id=352A
-unmount -id=353A
-unmount -id=351B
-unmount -id=351C
+# Desmontar todas las particiones montadas (122A, 123A, 121B que es PartB1, 121C)
+unmount -id=122A
+unmount -id=123A
+unmount -id=121B
+unmount -id=121C
 
 # Verificar
 mounted

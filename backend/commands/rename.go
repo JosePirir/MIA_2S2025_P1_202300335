@@ -95,7 +95,22 @@ func ExecuteRename(path string, newName string) {
 		return
 	}
 
-	// --- 5. Verificar existencia y cambiar nombre ---
+	// --- 5. Verificar existencia del nuevo nombre ---
+	for _, blockNum := range parentInode.I_block {
+		if blockNum == -1 {
+			continue
+		}
+		fb, _ := fs.ReadFolderBlock(file, sb, blockNum)
+		for _, entry := range fb.B_content {
+			name := string(bytes.Trim(entry.B_name[:], "\x00"))
+			if name == newName {
+				fmt.Println("Error: ya existe un archivo o carpeta con ese nombre en esta ubicación.")
+				return
+			}
+		}
+	}
+
+	// --- 6. Buscar el archivo/carpeta a renombrar ---
 	foundEntry := false
 	for _, blockNum := range parentInode.I_block {
 		if blockNum == -1 {
@@ -104,14 +119,6 @@ func ExecuteRename(path string, newName string) {
 		fb, _ := fs.ReadFolderBlock(file, sb, blockNum)
 		for i, entry := range fb.B_content {
 			name := string(bytes.Trim(entry.B_name[:], "\x00"))
-
-			// Verificar si ya existe el nuevo nombre
-			if name == newName {
-				fmt.Println("Error: ya existe un archivo o carpeta con ese nombre en esta ubicación.")
-				return
-			}
-
-			// Si encontramos el archivo/carpeta a renombrar
 			if name == targetName {
 				copy(fb.B_content[i].B_name[:], []byte(newName))
 				fs.WriteFolderBlock(file, sb, blockNum, fb)
