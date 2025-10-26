@@ -26,7 +26,9 @@ func ProcessCommands(input string) string {
 
 		// Si es un comentario, ignorarlo
 		if strings.HasPrefix(strings.TrimSpace(line), "#") {
-
+			comment := strings.TrimSpace(strings.TrimSpace(line)[1:])
+			outputBuilder.WriteString(fmt.Sprintf("Comentario: %s\n", comment))
+			continue
 		}
 
 		// Procesa la línea de comando actual

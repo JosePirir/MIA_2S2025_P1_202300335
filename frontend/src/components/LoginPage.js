@@ -27,6 +27,7 @@ function LoginPage({ onExecute }) {
       const cmd = `login -user=${user} -pass=${pass} -id=${id}`;
       const result = await onExecute(cmd); // ahora onExecute devuelve la salida
       if (typeof result === 'string' && result.includes('Login exitoso para el usuario')) {
+        alert('Login Exitoso');
         navigate('/');
         return;
       }

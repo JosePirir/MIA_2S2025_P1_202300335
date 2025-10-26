@@ -9,8 +9,9 @@ function DisksPage({ onExecute }) {
     setLoading(true);
     try {
       const res = await onExecute(`listdisks -path=${path}`);
-      const lines = (res || '').split('\n').map(l => l.trim()).filter(Boolean);
-      setDisks(lines);
+      const rawLines = (res || '').split('\n').map(l => l.replace(/\r/g,'').trim()).filter(Boolean);
+      const useful = rawLines.filter(l => !l.startsWith('>'));
+      setDisks(useful);
     } catch (err) {
       setDisks([`Error: ${err.message || err}`]);
     } finally {
@@ -25,12 +26,17 @@ function DisksPage({ onExecute }) {
       <h4>Discos detectados (carpeta "discos")</h4>
       {loading ? <p>Cargando...</p> : null}
       <ul className="list-group">
-        {disks.map((d, i) => (
-          <li key={i} className="list-group-item bg-dark text-light d-flex justify-content-between align-items-center">
-            <div style={{ wordBreak: 'break-all' }}>{d}</div>
-            <Link to={`/disco?path=${encodeURIComponent(d)}`} className="btn btn-sm btn-outline-light">Ver particiones</Link>
-          </li>
-        ))}
+        {disks.map((d, i) => {
+          const hasText = (d || '').trim() !== '';
+          return (
+            <li key={i} className="list-group-item bg-dark text-light d-flex justify-content-between align-items-center">
+              <div style={{ wordBreak: 'break-all' }}>{d}</div>
+              {hasText ? (
+                <Link to={`/disco?path=${encodeURIComponent(d)}`} className="btn btn-sm btn-outline-light">Ver particiones</Link>
+              ) : null}
+            </li>
+          );
+        })}
         {(!loading && disks.length === 0) && <li className="list-group-item bg-dark text-light">No se encontraron discos.</li>}
       </ul>
     </div>

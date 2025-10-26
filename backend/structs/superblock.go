@@ -19,4 +19,5 @@ type Superblock struct {
 	S_bm_block_start    int32 // Inicio del bitmap de bloques
 	S_inode_start       int32 // Inicio de la tabla de inodos
 	S_block_start       int32 // Inicio de la tabla de bloques
+	S_journal_start     int32 // Inicio del journaling (solo para EXT3)
 }

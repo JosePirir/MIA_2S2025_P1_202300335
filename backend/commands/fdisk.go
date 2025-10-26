@@ -71,21 +71,23 @@ func ExecuteFdisk(path, name, unit, typeStr, fit string, size int64, delete stri
 }
 
 // --- Estructura auxiliar para manejar los espacios libres ---
-type freeSpace struct {
-	start int64
-	end   int64
-	size  int64
+type FreeSpace struct {
+	Start int64
+	End   int64
+	Size  int64
 }
 
 // --- Lógica para Particiones Primarias ---
 func createPrimary(file *os.File, mbr *structs.MBR, name, fit string, size int64) {
 	fmt.Println("Iniciando creación de partición Primaria...")
 
-	// 1. Validaciones
-	partitionCount := 0
+	// 1. Validaciones: contar solo particiones primarias existentes
+	//primaryCount := 0
 	for i := 0; i < 4; i++ {
 		if mbr.Mbr_partitions[i].Part_status == '1' {
-			partitionCount++
+			if mbr.Mbr_partitions[i].Part_type == 'P' {
+				//primaryCount++
+			}
 			// Validar que el nombre no se repita
 			if strings.Trim(string(mbr.Mbr_partitions[i].Part_name[:]), "\x00") == name {
 				fmt.Printf("Error: ya existe una partición con el nombre '%s'.\n", name)
@@ -93,10 +95,10 @@ func createPrimary(file *os.File, mbr *structs.MBR, name, fit string, size int64
 			}
 		}
 	}
-	if partitionCount >= 4 {
-		fmt.Println("Error: ya existen 4 particiones, no se pueden crear más.")
-		return
-	}
+	//if primaryCount >= 3 {
+	//	fmt.Println("Error: ya existen 3 particiones primarias, no se pueden crear más.")
+	//	return
+	//}
 
 	// 2. Encontrar un hueco libre
 	freeSpaces := utils.GetFreeSpaces(mbr)
@@ -118,7 +120,7 @@ func createPrimary(file *os.File, mbr *structs.MBR, name, fit string, size int64
 
 	// 3. Crear la nueva estructura de Partición
 	var newPartition structs.Partition
-	newPartition.Part_status = '1' // Se crea como activa
+	newPartition.Part_status = '1' // Activa
 	newPartition.Part_type = 'P'
 	newPartition.Part_fit = byte(strings.ToUpper(fit)[0])
 	newPartition.Part_start = bestFitStart
@@ -143,6 +145,13 @@ func createPrimary(file *os.File, mbr *structs.MBR, name, fit string, size int64
 	err := utils.WriteMBR(file, mbr)
 	if err != nil {
 		fmt.Println(err)
+		return
+	}
+
+	// --- Inicializar la partición con ceros ---
+	zeroBytes := make([]byte, size)
+	if _, err := file.WriteAt(zeroBytes, newPartition.Part_start); err != nil {
+		fmt.Printf("Error al inicializar la partición con ceros: %v\n", err)
 		return
 	}
 
@@ -222,6 +231,13 @@ func createExtended(file *os.File, mbr *structs.MBR, name, fit string, size int6
 	err := utils.WriteMBR(file, mbr)
 	if err != nil {
 		fmt.Println(err)
+		return
+	}
+
+	// --- Inicializar la partición con ceros ---
+	zeroBytes := make([]byte, size)
+	if _, err := file.WriteAt(zeroBytes, newPartition.Part_start); err != nil {
+		fmt.Printf("Error al inicializar la partición extendida con ceros: %v\n", err)
 		return
 	}
 
@@ -305,6 +321,12 @@ func createLogical(file *os.File, mbr *structs.MBR, name, fit string, size int64
 	newEBR.Part_s = size
 	newEBR.Part_next = -1
 	copy(newEBR.Part_name[:], name)
+
+	zeroBytes := make([]byte, size)
+	if _, err := file.WriteAt(zeroBytes, newEBR.Part_start); err != nil {
+		fmt.Printf("Error al inicializar la partición lógica con ceros: %v\n", err)
+		return
+	}
 
 	// 5. Escribir el nuevo EBR en su lugar.
 	err = utils.WriteEBR(file, &newEBR, bestFitStart)
@@ -507,8 +529,8 @@ func resizePartition(file *os.File, mbr *structs.MBR, name string, add int64, un
 		part := &mbr.Mbr_partitions[i]
 		partName := strings.Trim(string(part.Part_name[:]), "\x00")
 		if partName == name && part.Part_status == '1' {
-			// --- Caso 1: reducir tamaño ---
 			if bytesToAdd < 0 {
+				// --- Reducir ---
 				if part.Part_s+bytesToAdd <= 0 {
 					fmt.Println("Error: la reducción excede el tamaño de la partición.")
 					return
@@ -516,29 +538,25 @@ func resizePartition(file *os.File, mbr *structs.MBR, name string, add int64, un
 				part.Part_s += bytesToAdd
 				fmt.Printf("Se redujo la partición '%s' en %d bytes.\n", name, -bytesToAdd)
 			} else {
-				// --- Caso 2: aumentar tamaño ---
-				endOfPartition := part.Part_start + part.Part_s
+				// --- Aumentar ---
 				freeSpaces := utils.GetFreeSpaces(mbr)
-				hasSpace := false
 
+				totalFree := int64(0)
 				for _, fs := range freeSpaces {
-					// Verificar si el espacio libre empieza justo después de la partición
-					if fs.Start == endOfPartition && fs.Size >= bytesToAdd {
-						hasSpace = true
-						break
-					}
+					totalFree += fs.Size
 				}
 
-				if !hasSpace {
-					fmt.Println("Error: no hay suficiente espacio libre contiguo para expandir la partición.")
+				if totalFree < bytesToAdd {
+					fmt.Println("Error: no hay suficiente espacio libre en el disco para expandir la partición.")
 					return
 				}
 
+				// Aumentar el tamaño aunque no sea contiguo
 				part.Part_s += bytesToAdd
-				fmt.Printf("Se aumentó la partición '%s' en %d bytes.\n", name, bytesToAdd)
+				fmt.Printf("Se aumentó la partición '%s' en %d bytes (sin requerir contigüidad).\n", name, bytesToAdd)
 			}
 
-			// 3. Escribir los cambios al MBR
+			// 3. Guardar cambios
 			err := utils.WriteMBR(file, mbr)
 			if err != nil {
 				fmt.Printf("Error al guardar los cambios en el MBR: %v\n", err)

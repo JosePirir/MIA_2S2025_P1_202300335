@@ -61,25 +61,55 @@ func ExecuteCopy(srcPath string, destPath string) {
 	}
 
 	// --- 5. Buscar destino ---
-	destInode, _, err := fs.FindInodeByPath(file, sb, destPath)
-	if err != nil {
-		fmt.Println("Error: la carpeta de destino no existe:", destPath)
-		return
+	var destInode structs.Inode
+	var destName string
+
+	// primero intentar encontrar destPath tal cual
+	foundInode, _, err := fs.FindInodeByPath(file, sb, destPath)
+	if err == nil {
+		// existe: si es archivo -> copiar con ese nombre dentro del padre; si es carpeta -> usarla
+		if foundInode.I_type == 0 {
+			destInode = foundInode
+			destName = path.Base(srcPath)
+		} else {
+			// destPath es un archivo existente -> usar su padre como carpeta destino y mantener ese nombre
+			parentPath := path.Dir(destPath)
+			parentInode, _, err2 := fs.FindInodeByPath(file, sb, parentPath)
+			if err2 != nil {
+				fmt.Println("Error: no se encontró la carpeta padre del destino:", parentPath)
+				return
+			}
+			if parentInode.I_type != 0 {
+				fmt.Println("Error: el padre del destino no es una carpeta:", parentPath)
+				return
+			}
+			destInode = parentInode
+			destName = path.Base(destPath)
+		}
+	} else {
+		// no existe: interpretar destPath como ruta de archivo nueva -> buscar carpeta padre
+		parentPath := path.Dir(destPath)
+		parentInode, _, err2 := fs.FindInodeByPath(file, sb, parentPath)
+		if err2 != nil {
+			fmt.Println("Error: la carpeta destino no existe:", parentPath)
+			return
+		}
+		if parentInode.I_type != 0 {
+			fmt.Println("Error: el destino debe ser una carpeta.")
+			return
+		}
+		destInode = parentInode
+		destName = path.Base(destPath)
 	}
 
-	// --- 6. Verificar que destino sea carpeta ---
-	if destInode.I_type != 0 {
-		fmt.Println("Error: el destino debe ser una carpeta.")
-		return
-	}
-
+	// --- Verificar permisos de escritura en la carpeta destino ---
 	if !tienePermisoEscritura(destInode, uid, gid) {
 		fmt.Println("Error: no tienes permiso de escritura en la carpeta destino.")
 		return
 	}
 
 	// --- 7. Copiar recursivamente ---
-	copyRecursive(file, sb, srcInode, path.Base(srcPath), destInode, uid, gid)
+	copyRecursive(file, sb, srcInode, destName, destInode, uid, gid)
 
 	fmt.Println("Copia completada correctamente.")
 }
@@ -154,7 +184,6 @@ func copyFolder(file *os.File, sb structs.Superblock, srcInode structs.Inode, fo
 		}
 	}
 }
-
 
 // --------------- PERMISOS--------------
 

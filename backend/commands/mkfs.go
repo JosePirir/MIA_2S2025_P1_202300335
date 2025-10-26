@@ -36,12 +36,18 @@ func ExecuteMkfs(id, formatType, fsType string) {
 
 	sizeOfSuperblock := int64(binary.Size(structs.Superblock{}))
 	sizeOfInode := int64(binary.Size(structs.Inode{}))
-	sizeOfBlock := int64(binary.Size(structs.FileBlock{}))
-	sizeOfJournaling := int64(50) // Tamaño fijo para journaling por estructura
+	
+	sizeOfFileBlock := int64(binary.Size(structs.FileBlock{}))
+	sizeOfFolderBlock := int64(binary.Size(structs.FolderBlock{}))
+	sizeOfBlock := int64(math.Max(float64(sizeOfFileBlock), float64(sizeOfFolderBlock)))
+
+	sizeOfJournaling := int64(binary.Size(structs.JournalEntry{}))
+	availableSpace := float64(mountedPartition.Size) - float64(sizeOfSuperblock)
+
 
 	// --- CÁLCULO DEL NÚMERO DE INODOS ---
 	// Se calcula el número de inodos 'n' que caben en la partición.
-	availableSpace := float64(mountedPartition.Size - sizeOfSuperblock)
+	//availableSpace := float64(mountedPartition.Size - sizeOfSuperblock)
 	//tructureUnitSize := float64(sizeOfInode + (3 * sizeOfBlock))
 
 	var structureUnitSize float64
@@ -49,7 +55,8 @@ func ExecuteMkfs(id, formatType, fsType string) {
 
 	if fsType == "3fs" {
 		// EXT3: considerar journaling
-		structureUnitSize = float64(sizeOfJournaling + sizeOfInode + (3 * sizeOfBlock))
+		//structureUnitSize = float64(sizeOfJournaling + sizeOfInode + (3 * sizeOfBlock))
+		structureUnitSize = float64(sizeOfJournaling) + 1 + 3 + float64(sizeOfInode) + 3*float64(sizeOfBlock)
 	} else {
 		// EXT2: igual que antes
 		structureUnitSize = float64(sizeOfInode + (3 * sizeOfBlock))
@@ -110,13 +117,27 @@ func ExecuteMkfs(id, formatType, fsType string) {
 	currentOffset := partitionStart + sizeOfSuperblock
 
 	if fsType == "3fs" {
-		// Reservar espacio de journaling
+    // Journaling
+		superbloque.S_journal_start = int32(currentOffset)
 		currentOffset += sizeOfJournaling * int64(n)
 	}
-	superbloque.S_bm_inode_start = int32(partitionStart + sizeOfSuperblock)
-	superbloque.S_bm_block_start = superbloque.S_bm_inode_start + superbloque.S_inodes_count
-	superbloque.S_inode_start = superbloque.S_bm_block_start + superbloque.S_blocks_count
-	superbloque.S_block_start = superbloque.S_inode_start + (superbloque.S_inodes_count * superbloque.S_inode_size)
+
+	// Bitmap de inodos
+	superbloque.S_bm_inode_start = int32(currentOffset)
+	currentOffset += int64(n) // n bytes, 1 por cada inodo
+
+	// Bitmap de bloques
+	superbloque.S_bm_block_start = int32(currentOffset)
+	currentOffset += 3 * int64(n) // 3n bytes, 1 por cada bloque
+
+	// Tabla de inodos
+	superbloque.S_inode_start = int32(currentOffset)
+	currentOffset += int64(sizeOfInode) * int64(n)
+
+	// Tabla de bloques
+	superbloque.S_block_start = int32(currentOffset)
+	currentOffset += 3 * int64(sizeOfBlock) * int64(n)
+	
 	// --- 6. APERTURA DEL ARCHIVO DE DISCO ---
 	// Se abre el archivo del disco en modo lectura/escritura para poder modificarlo.
 	file, err := os.OpenFile(mountedPartition.Path, os.O_RDWR, 0644)
@@ -137,23 +158,21 @@ func ExecuteMkfs(id, formatType, fsType string) {
 	fmt.Println("Superbloque creado y escrito.")
 
 	if fsType == "3fs" {
-		journaling := make([]byte, sizeOfJournaling*int64(n))
-		file.Seek(partitionStart+sizeOfSuperblock, 0)
-		binary.Write(file, binary.BigEndian, &journaling)
-		fmt.Println("Journaling inicializado (3FS).")
-		// Inicializar el journaling con entradas vacías.
-        fmt.Println("Inicializando journaling para 3FS...")
-        journalingStart := partitionStart + sizeOfSuperblock
-        file.Seek(journalingStart, 0)
+		fmt.Println("Inicializando journaling para 3FS...")
 
-        emptyEntry := structs.JournalEntry{}
-        for i := int64(0); i < int64(n); i++ {
-            if err := binary.Write(file, binary.BigEndian, &emptyEntry); err != nil {
-                fmt.Println("Error al inicializar el journaling:", err)
-                return
-            }
-        }
-        fmt.Println("Journaling inicializado correctamente.")
+		journalingStart := partitionStart + sizeOfSuperblock
+		file.Seek(journalingStart, 0)
+
+		// Inicializa las entradas vacías directamente (una sola escritura válida)
+		emptyEntry := structs.JournalEntry{}
+		for i := int64(0); i < int64(n); i++ {
+			if err := binary.Write(file, binary.BigEndian, &emptyEntry); err != nil {
+				fmt.Println("Error al inicializar el journaling:", err)
+				return
+			}
+		}
+
+		fmt.Println("Journaling inicializado correctamente.")
 	}
 
 	// --- 8. ESCRITURA DE BITMAPS Y BLOQUES (FORMATEO FULL) ---

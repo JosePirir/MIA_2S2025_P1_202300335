@@ -4,12 +4,39 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"proyecto1/fs"
 	"proyecto1/structs"
 )
+
+// helper convierte bits de permisos (asumidos en los 9 bits bajos) a string rwxrwxrwx
+func permsToString(p uint16) string {
+	out := ""
+	for g := 2; g >= 0; g-- {
+		r := (p >> (g*3 + 2)) & 1
+		w := (p >> (g*3 + 1)) & 1
+		x := (p >> (g * 3)) & 1
+		if r == 1 {
+			out += "r"
+		} else {
+			out += "-"
+		}
+		if w == 1 {
+			out += "w"
+		} else {
+			out += "-"
+		}
+		if x == 1 {
+			out += "x"
+		} else {
+			out += "-"
+		}
+	}
+	return out
+}
 
 // ExecuteListFS lista las entradas dentro de una ruta en la partición indicada.
 // Flags esperados (desde analyzer):
@@ -44,6 +71,10 @@ func ExecuteListFS(diskPath string, startStr string, path string) {
 		fmt.Println("Error al leer superbloque:", err)
 		return
 	}
+	if sb.S_magic != 0xEF53 {
+		fmt.Println("La partición no está formateada.")
+		return
+	}
 
 	if path == "" {
 		path = "/"
@@ -55,14 +86,8 @@ func ExecuteListFS(diskPath string, startStr string, path string) {
 		return
 	}
 
-	// Debe ser carpeta
-	if inode.I_type != 0 {
-		fmt.Println("Error: la ruta no es un directorio")
-		return
-	}
-
+	// recorrer bloques de carpeta
 	seen := map[string]bool{}
-	// Recorrer bloques de carpeta
 	for _, blockPtr := range inode.I_block {
 		if blockPtr == -1 {
 			continue
@@ -77,26 +102,26 @@ func ExecuteListFS(diskPath string, startStr string, path string) {
 				continue
 			}
 			name := strings.TrimRight(string(entry.B_name[:]), "\x00")
-			if name == "" {
+			if name == "" || name == "." || name == ".." {
 				continue
 			}
-			// Evitar duplicados si varios bloques referencian lo mismo
 			if seen[name] {
 				continue
 			}
 			seen[name] = true
-			// Leer inodo del entry para obtener tipo y tamaño
+
 			childInode, err := fs.ReadInode(f, sb, entry.B_inodo)
 			if err != nil {
-				fmt.Printf("ERR|%s|0\n", name)
+				fmt.Printf("ERR|%s|0|-\n", name)
 				continue
 			}
+
+			perms := permsToString(uint16(childInode.I_perm))
 			if childInode.I_type == 0 {
-				// DIR|name
-				fmt.Printf("DIR|%s\n", name)
+				// DIR|name|0|perms
+				fmt.Printf("DIR|%s|0|%s\n", filepath.Base(name), perms)
 			} else {
-				// FILE|name|size
-				fmt.Printf("FILE|%s|%d\n", name, childInode.I_size)
+				fmt.Printf("FILE|%s|%d|%s\n", filepath.Base(name), childInode.I_size, perms)
 			}
 		}
 	}

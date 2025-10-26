@@ -2,7 +2,7 @@ package structs
 
 // JournalEntry representa una entrada en el journaling del sistema de archivos EXT3.
 type JournalEntry struct {
-    JCount   int         // Lleva el conteo del journal.
+    JCount   int32       // <- tamaño fijo (4 bytes)
     JContent Information // Contiene toda la información de la acción realizada.
 }
 
