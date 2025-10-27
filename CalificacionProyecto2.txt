@@ -297,7 +297,7 @@ move -path=/noexiste.txt -destino=/home/destino.txt
 #  25:  EDIT
 
 # Editar archivo con contenido desde archivo existente
-edit -path=/home/user1/readme.txt -contenido=/home/fuente.txt
+edit -path=/home/user1/readme.txt -contenido=/home/josepirir/fuente.txt
 
 # Verificar cambios
 cat -file1=/home/user1/readme.txt
