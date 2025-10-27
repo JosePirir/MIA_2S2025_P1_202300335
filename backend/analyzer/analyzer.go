@@ -465,7 +465,7 @@ func executeCommand(commandLine string) string {
 
 	case "listdisks":
 		listCmd := flag.NewFlagSet("listdisks", flag.ContinueOnError)
-		path := listCmd.String("path", "/home/josepirir/Calificacion_MIA/Discos", "directorio que contiene discos")
+		path := listCmd.String("path", "/home/ubuntu/Calificacion_MIA/Discos", "directorio que contiene discos")
 		listCmd.Parse(args)
 		commands.ExecuteListDisks(*path)
 
