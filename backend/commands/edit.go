@@ -113,4 +113,5 @@ func ExecuteEdit(path string, cont string) {
 	fs.WriteInode(file, sb, inodeIndex, inode)
 
 	fmt.Println("Archivo editado correctamente:", path)
+	addJournalEntry(file, sb, mountedPartition.Start, "EDIT", path, "-")
 }

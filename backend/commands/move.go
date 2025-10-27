@@ -141,6 +141,7 @@ func ExecuteMove(srcPath string, destPath string) {
 	fs.WriteInode(file, sb, destParentIndex, destParentInode)
 
 	fmt.Println("Movimiento completado correctamente.")
+	addJournalEntry(file, sb, mountedPartition.Start, "MOVE", srcPath+" -> "+destPath, "-")
 }
 
 // addEntryToParent agrega un inodo existente a una carpeta (sin duplicar).

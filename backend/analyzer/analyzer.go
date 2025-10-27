@@ -433,8 +433,8 @@ func executeCommand(commandLine string) string {
 
 		commands.ExecuteRep(*name, *path, *id, *path_file_ls)
 
-	case "journal":
-		journalCmd := flag.NewFlagSet("journal", flag.ContinueOnError)
+	case "journaling":
+		journalCmd := flag.NewFlagSet("journaling", flag.ContinueOnError)
 		id := journalCmd.String("id", "", "ID de la partición a consultar journaling.")
 		journalCmd.Parse(args)
 

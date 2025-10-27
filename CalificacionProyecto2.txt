@@ -222,14 +222,14 @@ mkfile -r -path=/home/user1/proyectos/codigo/main.txt -size=75
 
 #  16: LEER ARCHIVOS CON CAT
 
-cat -file1=/home/user1/readme.txt
-cat -file1=/home/archivos/documento.txt
-cat -file1=/home/user1/archivo1.txt
+cat -file=/home/user1/readme.txt
+cat -file=/home/archivos/documento.txt
+cat -file=/home/user1/archivo1.txt
 
-#  17 y 18: JOURNALING con solo EXT3
+#  17 y 18: journaling con solo EXT3
 
-# Ver journal de partición EXT3 (122A es EXT3)
-journaling -id=122A
+# Ver journaling de partición EXT3 (122A es EXT3)
+journaling -id=351A
 
 #  19:  CHMOD
 
@@ -300,7 +300,7 @@ move -path=/noexiste.txt -destino=/home/destino.txt
 edit -path=/home/user1/readme.txt -contenido=/home/josepirir/fuente.txt
 
 # Verificar cambios
-cat -file1=/home/user1/readme.txt
+cat -file=/home/user1/readme.txt
 
 # ERROR: Archivo no existe
 edit -path=/noexiste.txt -contenido=/home/fuente.txt
@@ -327,11 +327,13 @@ remove -path=/noexiste.txt
 # Simular pérdida del sistema (solo EXT3 - usar 122A)
 loss -id=122A
 
-# Ver que el journal sigue disponible
+# Ver que el journaling sigue disponible
 journaling -id=122A
 
-# Recuperar el sistema desde journal
+# Recuperar el sistema desde journaling
 recovery -id=122A
+
+journaling -id=351A
 
 # DESMONTAR PARTICIONES
 

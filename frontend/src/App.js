@@ -53,7 +53,7 @@ function App() {
   return (
     <BrowserRouter>
       <div className="App bg-dark text-light min-vh-100">
-        <Header />
+        <Header onExecute={handleExecuteCommands} />  {/* <--- aquí */}
         <Routes>
           <Route path="/" element={<Main />} />
           <Route path="/login" element={<LoginPage onExecute={handleExecuteCommands} />} />

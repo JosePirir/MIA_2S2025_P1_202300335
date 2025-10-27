@@ -149,6 +149,7 @@ func ExecuteCopy(srcPath string, destPath string) {
 	}
 
 	fmt.Println("Copia completada correctamente.")
+	addJournalEntry(file, sb, mountedPartition.Start, "COPY", srcPath+" -> "+destPath, "-")
 }
 
 // writeFileToParent escribe bytes en la carpeta padre (crea o sobreescribe archivo).

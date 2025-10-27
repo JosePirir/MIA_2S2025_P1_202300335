@@ -137,4 +137,5 @@ func ExecuteRename(path string, newName string) {
 	}
 
 	fmt.Printf("Nombre cambiado correctamente: '%s' → '%s'\n", targetName, newName)
+	addJournalEntry(file, sb, mountedPartition.Start, "RENAME", path+" -> "+newName, "-")
 }

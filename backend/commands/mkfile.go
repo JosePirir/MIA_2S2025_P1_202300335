@@ -218,4 +218,5 @@ func ExecuteMkfile(path string, r bool, size int, cont string) {
 	}
 
 	fmt.Println("Archivo creado correctamente:", path)
+	addJournalEntry(file, sb, mountedPartition.Start, "MKFILE", path, cont)
 }

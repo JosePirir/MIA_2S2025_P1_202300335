@@ -87,6 +87,8 @@ func ExecuteRemove(filePath string) {
 	parentInode.I_mtime = time.Now().Unix()
 	fs.WriteInode(file, sb, parentIndex, parentInode)
 
+	addJournalEntry(file, sb, mountedPartition.Start, "REMOVE", filePath, "-")
+
 	fmt.Println("Eliminación completada exitosamente:", filePath)
 }
 

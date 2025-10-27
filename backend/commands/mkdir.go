@@ -282,4 +282,5 @@ func ExecuteMkdir(path string, p bool) {
 	}
 
 	fmt.Println("Carpeta creada correctamente:", path)
+	addJournalEntry(file, sb, mountedPartition.Start, "MKDIR", path, "-")
 }
