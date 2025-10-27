@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:3001'; // ajustar al puerto correcto del backend
+const API_BASE_URL = 'http://3.149.11.124:3001'; // ajustar al puerto correcto del backend
 
 export const executeCommands = async (commands) => {
   try {
