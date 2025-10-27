@@ -5,19 +5,22 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
+	"path"
 	"proyecto1/fs"
 	"proyecto1/state"
 	"proyecto1/structs"
+	"time"
+	
 )
 
 // ExecuteRemove elimina un archivo o carpeta si el usuario tiene permisos.
-func ExecuteRemove(path string) {
+func ExecuteRemove(filePath string) {
 	if !state.CurrentSession.IsActive {
 		fmt.Println("Error: Debes iniciar sesión para usar rm.")
 		return
 	}
 
-	// Buscar partición activa
+	// --- Obtener partición activa ---
 	var mountedPartition *state.MountedPartition
 	for _, mp := range state.GlobalMountedPartitions {
 		if mp.ID == state.CurrentSession.PartitionID {
@@ -26,7 +29,7 @@ func ExecuteRemove(path string) {
 		}
 	}
 	if mountedPartition == nil {
-		fmt.Println("Error: No se encontró la partición activa.")
+		fmt.Println("Error: no se encontró la partición activa.")
 		return
 	}
 
@@ -37,43 +40,54 @@ func ExecuteRemove(path string) {
 	}
 	defer file.Close()
 
-	// Leer superbloque
+	// --- Leer superbloque ---
 	var sb structs.Superblock
 	file.Seek(mountedPartition.Start, 0)
-	binary.Read(file, binary.BigEndian, &sb)
-
-	uid, gid, _ := getUserIDs(file, sb, state.CurrentSession.User)
-
-	// Buscar el inodo objetivo
-	inode, parentIndex, err := fs.FindInodeByPath(file, sb, path)
-	if err != nil {
-		fmt.Println("Error: el archivo o carpeta no existe:", path)
+	if err := binary.Read(file, binary.BigEndian, &sb); err != nil {
+		fmt.Println("Error al leer el superbloque:", err)
 		return
 	}
 
-	// Validar permisos de escritura
+	uid, gid, _ := getUserIDs(file, sb, state.CurrentSession.User)
+
+	// --- Buscar el inodo del archivo/carpeta ---
+	inode, _, err := fs.FindInodeByPath(file, sb, filePath)
+	if err != nil {
+		fmt.Println("Error: el archivo o carpeta no existe:", filePath)
+		return
+	}
+
+	// --- Validar permisos ---
 	if !tienePermisoEscritura(inode, uid, gid) {
 		fmt.Println("Error: no tienes permisos para eliminar este archivo o carpeta.")
 		return
 	}
 
-	// Verificar si es carpeta o archivo
+	// --- Obtener inodo padre ---
+	parentPath := path.Dir(filePath)
+	parentInode, parentIndex, err := fs.FindInodeByPath(file, sb, parentPath)
+	if err != nil {
+		fmt.Println("Error: no se encontró la carpeta padre:", parentPath)
+		return
+	}
+
+	// --- Eliminar archivo o carpeta ---
 	if inode.I_type == 0 {
-		// Carpeta → eliminación recursiva con verificación de permisos
-		if !canDeleteFolderRecursively(file, sb, inode, uid, gid) {
-			fmt.Println("Error: no se pudieron eliminar algunos archivos o subcarpetas por permisos.")
-			return
-		}
+		// Carpeta → eliminación recursiva
 		removeFolderRecursively(file, sb, inode.I_uid, mountedPartition.Start)
 	} else {
 		// Archivo
 		removeFile(file, sb, inode.I_uid, mountedPartition.Start)
 	}
 
-	// Eliminar la entrada del padre
-	removeEntryFromParent(file, sb, parentIndex, path)
+	// --- Eliminar entrada del padre ---
+	removeEntryFromParent(file, sb, parentIndex, path.Base(filePath))
 
-	fmt.Println("Eliminación completada exitosamente:", path)
+	// --- Actualizar timestamp del padre ---
+	parentInode.I_mtime = time.Now().Unix()
+	fs.WriteInode(file, sb, parentIndex, parentInode)
+
+	fmt.Println("Eliminación completada exitosamente:", filePath)
 }
 
 // removeFile elimina los bloques y el inodo de un archivo.

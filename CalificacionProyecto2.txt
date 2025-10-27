@@ -314,10 +314,10 @@ remove -path=/home/user1/archivo_renombrado.txt
 remove -path=/home/user1/proyectos/codigo
 
 # ERROR: Carpeta no vacía sin flag -r 
-remove -path=/home/docs_user1
-
+#remove -path=/home/docs_user1
+#NO VIENE EN EL ENUNCIADO DEL PROYECTO
 # Eliminar carpeta no vacía con flag -r
-remove -path=/home/docs_user1 -r
+#remove -path=/home/docs_user1 -r
 
 # ERROR: No existe
 remove -path=/noexiste.txt
@@ -338,10 +338,10 @@ recovery -id=122A
 # Primero hacer logout desde la interfaz web
 
 # Desmontar todas las particiones montadas (122A, 123A, 121B que es PartB1, 121C)
-unmount -id=122A
-unmount -id=123A
-unmount -id=121B
-unmount -id=121C
+unmount -id=351A
+unmount -id=352A
+unmount -id=351B
+unmount -id=351C
 
 # Verificar
 mounted

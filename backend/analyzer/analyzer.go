@@ -183,7 +183,7 @@ func executeCommand(commandLine string) string {
 
 	case "remove":
 		removeCmd := flag.NewFlagSet("remove", flag.ContinueOnError)
-		path := removeCmd.String("remove", "", "Eliminar un archivo.")
+		path := removeCmd.String("path", "", "Eliminar un archivo.")
 
 		removeCmd.Parse(args)
 
