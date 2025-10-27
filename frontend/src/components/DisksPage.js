@@ -5,7 +5,7 @@ function DisksPage({ onExecute }) {
   const [disks, setDisks] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  async function load(path = '/home/josepirir/Calificacion_MIA/Discos') {
+  async function load(path = '/home/ubuntu/Calificacion_MIA/Discos') {
     setLoading(true);
     try {
       const res = await onExecute(`listdisks -path=${path}`);
