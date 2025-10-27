@@ -1,26 +1,29 @@
 package commands
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"os"
-	"strings"
+	"path"
+	"time"
+
 	"proyecto1/fs"
 	"proyecto1/state"
 	"proyecto1/structs"
 )
 
-func ExecuteMove(path string, destino string) {
+// ExecuteMove: mueve un archivo o carpeta a otro destino dentro de la misma partición.
+func ExecuteMove(srcPath string, destPath string) {
 	if !state.CurrentSession.IsActive {
 		fmt.Println("Error: debes iniciar sesión para usar move.")
 		return
 	}
 
+	// --- Obtener partición activa ---
 	var mountedPartition *state.MountedPartition
-	for _, mp := range state.GlobalMountedPartitions {
-		if mp.ID == state.CurrentSession.PartitionID {
-			mountedPartition = &mp
+	for _, p := range state.GlobalMountedPartitions {
+		if p.ID == state.CurrentSession.PartitionID {
+			mountedPartition = &p
 			break
 		}
 	}
@@ -36,7 +39,7 @@ func ExecuteMove(path string, destino string) {
 	}
 	defer file.Close()
 
-	// Leer superbloque
+	// --- Leer superbloque ---
 	var sb structs.Superblock
 	file.Seek(mountedPartition.Start, 0)
 	if err := binary.Read(file, binary.BigEndian, &sb); err != nil {
@@ -44,72 +47,120 @@ func ExecuteMove(path string, destino string) {
 		return
 	}
 
-	// Buscar inodo origen
-	inodeOrigen, parentOrigen, errOrigen := fs.FindInodeByPath(file, sb, path)
-	if errOrigen != nil {
-		fmt.Println("Error: la ruta origen no existe.")
-		return
-	}
-
-	// Verificar permisos de escritura en el origen
 	uid, gid, _ := getUserIDs(file, sb, state.CurrentSession.User)
-	if !tienePermisoEscritura(inodeOrigen, uid, gid) {
-		fmt.Println("Error: no tienes permiso de escritura sobre el archivo o carpeta origen.")
+
+	// --- Buscar origen ---
+	srcInode, srcIndex, err := fs.FindInodeByPath(file, sb, srcPath)
+	if err != nil {
+		fmt.Println("Error: no se encontró la ruta origen:", srcPath)
 		return
 	}
 
-	// Buscar destino
-	inodeDestino, _, errDestino := fs.FindInodeByPath(file, sb, destino)
-	if errDestino != nil {
-		fmt.Println("Error: la ruta destino no existe.")
+	if !tienePermisoEscritura(srcInode, uid, gid) {
+		fmt.Println("Error: no tienes permiso de escritura sobre el origen.")
 		return
 	}
 
-	// Verificar que el destino sea una carpeta
-	if inodeDestino.I_type != 0 {
-		fmt.Println("Error: el destino no es una carpeta.")
+	// --- Obtener padre del origen ---
+	srcParentPath := path.Dir(srcPath)
+	srcParentInode, srcParentIndex, err := fs.FindInodeByPath(file, sb, srcParentPath)
+	if err != nil {
+		fmt.Println("Error: no se encontró la carpeta padre del origen:", srcParentPath)
 		return
 	}
 
-	// Verificar permisos de escritura sobre la carpeta destino
-	if !tienePermisoEscritura(inodeDestino, uid, gid) {
-		fmt.Println("Error: no tienes permiso de escritura sobre la carpeta destino.")
+	// --- Determinar destino ---
+	var destParentInode structs.Inode
+	var destParentIndex int32
+	var destName string
+
+	destInode, destIdx, errDest := fs.FindInodeByPath(file, sb, destPath)
+	if errDest == nil {
+		if destInode.I_type == 0 {
+			// destPath es carpeta: mover dentro
+			destParentInode = destInode
+			destParentIndex = destIdx
+			destName = path.Base(srcPath)
+		} else {
+			// destPath es archivo: sobreescribir
+			parentPath := path.Dir(destPath)
+			pInode, pIdx, err := fs.FindInodeByPath(file, sb, parentPath)
+			if err != nil {
+				fmt.Println("Error: no se encontró la carpeta padre del destino:", parentPath)
+				return
+			}
+			if pInode.I_type != 0 {
+				fmt.Println("Error: el padre del destino no es una carpeta:", parentPath)
+				return
+			}
+			destParentInode = pInode
+			destParentIndex = pIdx
+			destName = path.Base(destPath)
+		}
+	} else {
+		// destPath no existe: buscar padre
+		parentPath := path.Dir(destPath)
+		pInode, pIdx, err := fs.FindInodeByPath(file, sb, parentPath)
+		if err != nil {
+			fmt.Println("Error: la carpeta destino no existe:", parentPath)
+			return
+		}
+		if pInode.I_type != 0 {
+			fmt.Println("Error: el destino debe ser una carpeta.")
+			return
+		}
+		destParentInode = pInode
+		destParentIndex = pIdx
+		destName = path.Base(destPath)
+	}
+
+	// --- Verificar permisos escritura en destino ---
+	if !tienePermisoEscritura(destParentInode, uid, gid) {
+		fmt.Println("Error: no tienes permiso de escritura en la carpeta destino.")
 		return
 	}
 
-	// Obtener nombre del archivo/carpeta a mover
-	nombreOrigen := getLastNameFromPath(path)
+	// --- Agregar entrada al destino sin duplicar datos ---
+	if err := addEntryToParent(file, sb, destParentIndex, destName, srcIndex); err != nil {
+		fmt.Println("Error agregando entrada al destino:", err)
+		return
+	}
 
-	// --- 1. Eliminar referencia del padre original ---
-	parentInode, _ := fs.ReadInode(file, sb, parentOrigen)
+	// --- Eliminar entrada del padre original ---
+	removeEntryFromParent(file, sb, srcParentIndex, path.Base(srcPath))
+
+	// --- Actualizar timestamps ---
+	now := time.Now().Unix()
+	srcInode.I_mtime = now
+	fs.WriteInode(file, sb, srcIndex, srcInode)
+
+	srcParentInode.I_mtime = now
+	fs.WriteInode(file, sb, srcParentIndex, srcParentInode)
+
+	destParentInode.I_mtime = now
+	fs.WriteInode(file, sb, destParentIndex, destParentInode)
+
+	fmt.Println("Movimiento completado correctamente.")
+}
+
+// addEntryToParent agrega un inodo existente a una carpeta (sin duplicar).
+func addEntryToParent(file *os.File, sb structs.Superblock, parentIndex int32, name string, inodeIndex int32) error {
+	parentInode, err := fs.ReadInode(file, sb, parentIndex)
+	if err != nil {
+		return err
+	}
+
+	inserted := false
 	for _, blockNum := range parentInode.I_block {
 		if blockNum == -1 {
 			continue
 		}
 		fb, _ := fs.ReadFolderBlock(file, sb, blockNum)
-		for i := range fb.B_content {
-			entryName := string(bytes.Trim(fb.B_content[i].B_name[:], "\x00"))
-			if entryName == nombreOrigen {
-				fb.B_content[i].B_inodo = -1
-				copy(fb.B_content[i].B_name[:], make([]byte, len(fb.B_content[i].B_name)))
+		for i, entry := range fb.B_content {
+			if entry.B_inodo == -1 {
+				copy(fb.B_content[i].B_name[:], []byte(name))
+				fb.B_content[i].B_inodo = inodeIndex
 				fs.WriteFolderBlock(file, sb, blockNum, fb)
-				break
-			}
-		}
-	}
-
-	// --- 2. Agregar referencia en el nuevo padre ---
-	inserted := false
-	for _, blockNum := range inodeDestino.I_block {
-		if blockNum == -1 {
-			continue
-		}
-		destFB, _ := fs.ReadFolderBlock(file, sb, blockNum)
-		for i := range destFB.B_content {
-			if destFB.B_content[i].B_inodo == -1 {
-				copy(destFB.B_content[i].B_name[:], []byte(nombreOrigen))
-				destFB.B_content[i].B_inodo = parentOrigen // Se mantiene el mismo índice del inodo movido
-				fs.WriteFolderBlock(file, sb, blockNum, destFB)
 				inserted = true
 				break
 			}
@@ -120,15 +171,31 @@ func ExecuteMove(path string, destino string) {
 	}
 
 	if !inserted {
-		fmt.Println("Error: no hay espacio disponible en la carpeta destino.")
-		return
+		// Crear nuevo bloque de carpeta si no hay espacio
+		newBlockIndex, _ := fs.FindFreeBlock(file, sb)
+		fs.MarkBlockAsUsed(file, sb, newBlockIndex)
+
+		var fb structs.FolderBlock
+		for i := range fb.B_content {
+			fb.B_content[i].B_inodo = -1
+		}
+		copy(fb.B_content[0].B_name[:], []byte(name))
+		fb.B_content[0].B_inodo = inodeIndex
+		fs.WriteFolderBlock(file, sb, newBlockIndex, fb)
+
+		wrote := false
+		for i := range parentInode.I_block {
+			if parentInode.I_block[i] == -1 {
+				parentInode.I_block[i] = newBlockIndex
+				fs.WriteInode(file, sb, parentIndex, parentInode)
+				wrote = true
+				break
+			}
+		}
+		if !wrote {
+			return fmt.Errorf("no hay espacio en el inodo padre para agregar bloque")
+		}
 	}
 
-	fmt.Printf("Elemento '%s' movido correctamente a '%s'.\n", path, destino)
-}
-
-// --- Función auxiliar ---
-func getLastNameFromPath(path string) string {
-	parts := strings.Split(strings.TrimRight(path, "/"), "/")
-	return parts[len(parts)-1]
+	return nil
 }
