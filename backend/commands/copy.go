@@ -6,18 +6,21 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"time"
+
 	"proyecto1/fs"
 	"proyecto1/state"
 	"proyecto1/structs"
 )
 
+// ExecuteCopy: copia archivo o carpeta (recursivo).
 func ExecuteCopy(srcPath string, destPath string) {
 	if !state.CurrentSession.IsActive {
 		fmt.Println("Error: debes iniciar sesión para usar copy.")
 		return
 	}
 
-	// --- 1. Obtener la partición activa ---
+	// --- Obtener partición activa ---
 	var mountedPartition *state.MountedPartition
 	for _, p := range state.GlobalMountedPartitions {
 		if p.ID == state.CurrentSession.PartitionID {
@@ -37,7 +40,7 @@ func ExecuteCopy(srcPath string, destPath string) {
 	}
 	defer file.Close()
 
-	// --- 2. Leer superbloque ---
+	// --- Leer superbloque ---
 	var sb structs.Superblock
 	file.Seek(mountedPartition.Start, 0)
 	if err := binary.Read(file, binary.BigEndian, &sb); err != nil {
@@ -47,127 +50,283 @@ func ExecuteCopy(srcPath string, destPath string) {
 
 	uid, gid, _ := getUserIDs(file, sb, state.CurrentSession.User)
 
-	// --- 3. Buscar origen ---
+	// --- Buscar origen ---
 	srcInode, _, err := fs.FindInodeByPath(file, sb, srcPath)
 	if err != nil {
 		fmt.Println("Error: no se encontró la ruta origen:", srcPath)
 		return
 	}
 
-	// --- 4. Verificar permisos de lectura ---
 	if !tienePermisoLectura(srcInode, uid, gid) {
-		fmt.Println("Error: no tienes permiso de lectura sobre el archivo o carpeta de origen.")
+		fmt.Println("Error: no tienes permiso de lectura sobre el origen.")
 		return
 	}
 
-	// --- 5. Buscar destino ---
-	var destInode structs.Inode
+	// --- Determinar destino real ---
+	// Si destPath existe y es carpeta -> usarla como padre y nombre = base(srcPath)
+	// Si destPath existe y es archivo -> usar ese archivo (se sobreescribirá)
+	// Si destPath no existe -> buscar padre y usar base(destPath) como nombre de archivo
+	var parentInode structs.Inode
+	var parentInodeIndex int32
 	var destName string
+	//destIsDir := false
+	//destIsDir := false
 
-	// primero intentar encontrar destPath tal cual
-	foundInode, _, err := fs.FindInodeByPath(file, sb, destPath)
-	if err == nil {
-		// existe: si es archivo -> copiar con ese nombre dentro del padre; si es carpeta -> usarla
-		if foundInode.I_type == 0 {
-			destInode = foundInode
+	// Intentar encontrar destPath tal cual
+	destInode, destIdx, errDest := fs.FindInodeByPath(file, sb, destPath)
+	if errDest == nil {
+		// encontrado
+		if destInode.I_type == 0 {
+			// es carpeta: copiar dentro con mismo nombre de origen
+			parentInode = destInode
+			parentInodeIndex = destIdx
 			destName = path.Base(srcPath)
+			//destIsDir = true
 		} else {
-			// destPath es un archivo existente -> usar su padre como carpeta destino y mantener ese nombre
+			// es archivo: usaremos su padre y su nombre (sobreescribir)
 			parentPath := path.Dir(destPath)
-			parentInode, _, err2 := fs.FindInodeByPath(file, sb, parentPath)
-			if err2 != nil {
+			pInode, pIdx, err := fs.FindInodeByPath(file, sb, parentPath)
+			if err != nil {
 				fmt.Println("Error: no se encontró la carpeta padre del destino:", parentPath)
 				return
 			}
-			if parentInode.I_type != 0 {
+			if pInode.I_type != 0 {
 				fmt.Println("Error: el padre del destino no es una carpeta:", parentPath)
 				return
 			}
-			destInode = parentInode
+			parentInode = pInode
+			parentInodeIndex = pIdx
 			destName = path.Base(destPath)
 		}
 	} else {
-		// no existe: interpretar destPath como ruta de archivo nueva -> buscar carpeta padre
+		// destPath no existe: buscar padre
 		parentPath := path.Dir(destPath)
-		parentInode, _, err2 := fs.FindInodeByPath(file, sb, parentPath)
-		if err2 != nil {
+		pInode, pIdx, err := fs.FindInodeByPath(file, sb, parentPath)
+		if err != nil {
 			fmt.Println("Error: la carpeta destino no existe:", parentPath)
 			return
 		}
-		if parentInode.I_type != 0 {
+		if pInode.I_type != 0 {
 			fmt.Println("Error: el destino debe ser una carpeta.")
 			return
 		}
-		destInode = parentInode
+		parentInode = pInode
+		parentInodeIndex = pIdx
 		destName = path.Base(destPath)
 	}
 
-	// --- Verificar permisos de escritura en la carpeta destino ---
-	if !tienePermisoEscritura(destInode, uid, gid) {
+	// Permiso escritura en carpeta destino
+	if !tienePermisoEscritura(parentInode, uid, gid) {
 		fmt.Println("Error: no tienes permiso de escritura en la carpeta destino.")
 		return
 	}
 
-	// --- 7. Copiar recursivamente ---
-	copyRecursive(file, sb, srcInode, destName, destInode, uid, gid)
+	// --- Copiar recursivamente ---
+	if srcInode.I_type == 1 {
+		// archivo
+		data, err := fs.ReadFileContent(file, sb, srcInode)
+		if err != nil {
+			fmt.Println("Error al leer el archivo origen:", err)
+			return
+		}
+		if err := writeFileToParent(file, sb, parentInodeIndex, destName, data, uid, gid); err != nil {
+			fmt.Println("Error al escribir archivo destino:", err)
+			return
+		}
+	} else {
+		// carpeta
+		//newFolderPath := path.Join(path.Clean("/"), path.Join(path.Clean(path.Dir(destPath)), destName))
+		// Crear carpeta destino (usa ExecuteMkdir para reutilizar código de creación de carpetas)
+		ExecuteMkdir(path.Join(path.Dir(destPath), destName), true)
+		// Leer de nuevo para obtener el nuevo inodo de la carpeta creada
+		newParentInode, _, err := fs.FindInodeByPath(file, sb, path.Join(path.Dir(destPath), destName))
+		if err != nil {
+			fmt.Println("Error al obtener carpeta destino creada:", err)
+			return
+		}
+		// Recorrer contenido fuente
+		copyFolderRecursive(file, sb, srcInode, newParentInode, path.Join(path.Dir(destPath), destName), uid, gid)
+	}
 
 	fmt.Println("Copia completada correctamente.")
 }
 
-// ------------------------------------------------------------
-// Función auxiliar recursiva: copia archivos y carpetas
-// ------------------------------------------------------------
-func copyRecursive(file *os.File, sb structs.Superblock, srcInode structs.Inode, name string, destInode structs.Inode, uid int32, gid int32) {
-	if srcInode.I_type == 1 {
-		// Es archivo
-		copyFile(file, sb, srcInode, name, destInode, uid, gid)
-	} else {
-		// Es carpeta
-		copyFolder(file, sb, srcInode, name, destInode, uid, gid)
-	}
-}
-
-// ------------------------------------------------------------
-// Copiar archivo individual
-// ------------------------------------------------------------
-func copyFile(file *os.File, sb structs.Superblock, srcInode structs.Inode, name string, destInode structs.Inode, uid int32, gid int32) {
-	if !tienePermisoLectura(srcInode, uid, gid) {
-		fmt.Println("Saltando archivo (sin permisos de lectura):", name)
-		return
+// writeFileToParent escribe bytes en la carpeta padre (crea o sobreescribe archivo).
+func writeFileToParent(file *os.File, sb structs.Superblock, parentInodeIndex int32, fileName string, data []byte, uid, gid int32) error {
+	// Leer parent inode
+	parentInode, err := fs.ReadInode(file, sb, parentInodeIndex)
+	if err != nil {
+		return fmt.Errorf("error leyendo inodo padre: %v", err)
 	}
 
-	// Leer contenido
-	var content bytes.Buffer
-	for _, blockNum := range srcInode.I_block {
+	// Buscar entrada existente
+	var existingInodeIndex int32 = -1
+	//var foundBlockIdx int32 = -1
+	//var foundEntryIdx int = -1
+
+	for _, blockNum := range parentInode.I_block {
 		if blockNum == -1 {
 			continue
 		}
-		fb, _ := fs.ReadFileBlock(file, sb, blockNum)
-		content.Write(bytes.Trim(fb.B_content[:], "\x00"))
+		fb, err := fs.ReadFolderBlock(file, sb, blockNum)
+		if err != nil {
+			continue
+		}
+		for _, entry := range fb.B_content {			
+			name := string(bytes.Trim(entry.B_name[:], "\x00"))
+			if name == fileName && entry.B_inodo != -1 {
+				existingInodeIndex = entry.B_inodo
+				//foundBlockIdx = blockNum
+				//foundEntryIdx = idx
+				break
+			}
+		}
+		if existingInodeIndex != -1 {
+			break
+		}
 	}
 
-	// Crear nuevo archivo con el mismo contenido
-	tmpPath := "/tmp_copy_" + name // ruta temporal
-	os.WriteFile(tmpPath, content.Bytes(), 0644)
+	// Si existe, sobrescribir su inodo
+	if existingInodeIndex != -1 {
+		inode, err := fs.ReadInode(file, sb, existingInodeIndex)
+		if err != nil {
+			return fmt.Errorf("error leyendo inodo existente: %v", err)
+		}
+		// Limpiar punteros actuales (no implementamos liberación de bloques aquí; simplemente sobrescribimos)
+		for i := range inode.I_block {
+			inode.I_block[i] = -1
+		}
+		// Escribir datos en nuevos bloques
+		blockSize := int(sb.S_block_size)
+		offset := 0
+		for i := 0; i < len(inode.I_block) && offset < len(data); i++ {
+			bIdx, _ := fs.FindFreeBlock(file, sb)
+			fs.MarkBlockAsUsed(file, sb, bIdx)
+			end := offset + blockSize
+			if end > len(data) {
+				end = len(data)
+			}
+			var fb structs.FileBlock
+			copy(fb.B_content[:], data[offset:end])
+			if err := fs.WriteFileBlock(file, sb, bIdx, fb); err != nil {
+				return fmt.Errorf("error escribiendo bloque: %v", err)
+			}
+			inode.I_block[i] = bIdx
+			offset = end
+		}
+		inode.I_size = int32(len(data))
+		inode.I_mtime = time.Now().Unix()
+		inode.I_uid = uid
+		inode.I_gid = gid
+		if err := fs.WriteInode(file, sb, existingInodeIndex, inode); err != nil {
+			return fmt.Errorf("error actualizando inodo: %v", err)
+		}
+		return nil
+	}
 
-	ExecuteMkfile(path.Join("/", name), false, 0, tmpPath)
-	os.Remove(tmpPath)
+	// Si no existe: crear nuevo inodo y añadir entrada en carpeta padre
+	newInodeIndex, _ := fs.FindFreeInode(file, sb)
+	fs.MarkInodeAsUsed(file, sb, newInodeIndex)
+
+	var newInode structs.Inode
+	newInode.I_uid = uid
+	newInode.I_gid = gid
+	newInode.I_type = 1
+	newInode.I_perm = 664
+	newInode.I_atime = time.Now().Unix()
+	newInode.I_ctime = time.Now().Unix()
+	newInode.I_mtime = time.Now().Unix()
+	for i := range newInode.I_block {
+		newInode.I_block[i] = -1
+	}
+
+	// Escribir contenido en bloques
+	blockSize := int(sb.S_block_size)
+	offset := 0
+	for i := 0; offset < len(data) && i < len(newInode.I_block); i++ {
+		blockIndex, _ := fs.FindFreeBlock(file, sb)
+		fs.MarkBlockAsUsed(file, sb, blockIndex)
+
+		end := offset + blockSize
+		if end > len(data) {
+			end = len(data)
+		}
+
+		var fb structs.FileBlock
+		copy(fb.B_content[:], data[offset:end])
+		offset = end
+
+		newInode.I_block[i] = blockIndex
+		if err := fs.WriteFileBlock(file, sb, blockIndex, fb); err != nil {
+			return fmt.Errorf("error escribiendo bloque: %v", err)
+		}
+	}
+	newInode.I_size = int32(len(data))
+
+	if err := fs.WriteInode(file, sb, newInodeIndex, newInode); err != nil {
+		return fmt.Errorf("error escribiendo inodo: %v", err)
+	}
+
+	// Insertar entrada en carpeta padre
+	inserted := false
+	for _, blockNum := range parentInode.I_block {
+		if blockNum == -1 {
+			continue
+		}
+		parentFB, _ := fs.ReadFolderBlock(file, sb, blockNum)
+		for idx, entry := range parentFB.B_content {
+			if entry.B_inodo == -1 {
+				copy(parentFB.B_content[idx].B_name[:], []byte(fileName))
+				parentFB.B_content[idx].B_inodo = newInodeIndex
+				if err := fs.WriteFolderBlock(file, sb, blockNum, parentFB); err != nil {
+					return fmt.Errorf("error escribiendo bloque carpeta padre: %v", err)
+				}
+				inserted = true
+				break
+			}
+		}
+		if inserted {
+			break
+		}
+	}
+
+	if !inserted {
+		// Crear nuevo bloque de carpeta
+		newParentBlockIndex, _ := fs.FindFreeBlock(file, sb)
+		fs.MarkBlockAsUsed(file, sb, newParentBlockIndex)
+
+		var parentFB structs.FolderBlock
+		for i := range parentFB.B_content {
+			parentFB.B_content[i].B_inodo = -1
+		}
+		copy(parentFB.B_content[0].B_name[:], []byte(fileName))
+		parentFB.B_content[0].B_inodo = newInodeIndex
+		if err := fs.WriteFolderBlock(file, sb, newParentBlockIndex, parentFB); err != nil {
+			return fmt.Errorf("error escribiendo nuevo bloque carpeta padre: %v", err)
+		}
+
+		wrote := false
+		for i := range parentInode.I_block {
+			if parentInode.I_block[i] == -1 {
+				parentInode.I_block[i] = newParentBlockIndex
+				if err := fs.WriteInode(file, sb, parentInodeIndex, parentInode); err != nil {
+					return fmt.Errorf("error actualizando inodo padre: %v", err)
+				}
+				wrote = true
+				break
+			}
+		}
+		if !wrote {
+			return fmt.Errorf("no hay espacio en el inodo padre para agregar bloque")
+		}
+	}
+
+	return nil
 }
 
-// ------------------------------------------------------------
-// Copiar carpeta (recursivo)
-// ------------------------------------------------------------
-func copyFolder(file *os.File, sb structs.Superblock, srcInode structs.Inode, folderName string, destInode structs.Inode, uid int32, gid int32) {
-	if !tienePermisoLectura(srcInode, uid, gid) {
-		fmt.Println("Saltando carpeta (sin permisos de lectura):", folderName)
-		return
-	}
-
-	// Crear la carpeta destino
-	destFolderPath := path.Join("/", folderName)
-	ExecuteMkdir(destFolderPath, false)
-
-	// Leer todos los contenidos del directorio fuente
+// copyFolderRecursive copia el contenido de una carpeta fuente dentro de la carpeta destino (ya creada).
+func copyFolderRecursive(file *os.File, sb structs.Superblock, srcInode structs.Inode, destInode structs.Inode, destPath string, uid, gid int32) {
+	// Leer cada entrada del directorio fuente y copiar según tipo
 	for _, blockNum := range srcInode.I_block {
 		if blockNum == -1 {
 			continue
@@ -178,9 +337,30 @@ func copyFolder(file *os.File, sb structs.Superblock, srcInode structs.Inode, fo
 			if entryName == "" || entry.B_inodo == -1 || entryName == "." || entryName == ".." {
 				continue
 			}
-
 			entryInode, _ := fs.ReadInode(file, sb, entry.B_inodo)
-			copyRecursive(file, sb, entryInode, entryName, destInode, uid, gid)
+			if entryInode.I_type == 1 {
+				// archivo
+				data, err := fs.ReadFileContent(file, sb, entryInode)
+				if err != nil {
+					fmt.Println("Error leyendo archivo fuente:", err)
+					continue
+				}
+				if err := writeFileToParent(file, sb, destInode.I_block[0], entryName, data, uid, gid); err != nil {
+					// Nota: intenta encontrar el índice del inodo destino carpeta si I_block[0] no es el bloque que contiene la entrada
+					// Para simplicidad se asume que destInode está sincronizado y writeFileToParent busca en todos sus bloques.
+					fmt.Println("Error escribiendo archivo destino:", err)
+				}
+			} else {
+				// carpeta: crear y recursar
+				newDestPath := path.Join(destPath, entryName)
+				ExecuteMkdir(newDestPath, true)
+				newDestInode, _, err := fs.FindInodeByPath(file, sb, newDestPath)
+				if err != nil {
+					fmt.Println("Error al obtener carpeta destino creada:", err)
+					continue
+				}
+				copyFolderRecursive(file, sb, entryInode, newDestInode, newDestPath, uid, gid)
+			}
 		}
 	}
 }
