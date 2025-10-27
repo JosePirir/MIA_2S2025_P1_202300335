@@ -325,13 +325,13 @@ remove -path=/noexiste.txt
 #  27: COMANDOS CRÍTICOS - LOSS Y RECOVERY
 
 # Simular pérdida del sistema (solo EXT3 - usar 122A)
-loss -id=122A
+loss -id=351A
 
 # Ver que el journaling sigue disponible
-journaling -id=122A
+journaling -id=351A
 
 # Recuperar el sistema desde journaling
-recovery -id=122A
+recovery -id=351A
 
 journaling -id=351A
 

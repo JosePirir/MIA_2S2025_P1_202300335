@@ -443,6 +443,26 @@ func executeCommand(commandLine string) string {
 		}
 		commands.ShowJournal(*id)
 
+	case "recovery":
+		recoveryCmd := flag.NewFlagSet("recovery", flag.ContinueOnError)
+		id := recoveryCmd.String("id", "", "ID de la partición a recuperar.")
+		recoveryCmd.Parse(args)
+		
+		if *id == "" {
+			fmt.Println("Error: el parámetro -id es obligatorio para recovery.")
+		}
+		commands.RecoveryFileSystem(*id)
+
+	case "loss":
+		lossCmd := flag.NewFlagSet("loss", flag.ContinueOnError)
+		id := lossCmd.String("id", "", "ID de la partición a simular perdida de datos.")
+		lossCmd.Parse(args)
+		
+		if *id == "" {
+			fmt.Println("Error: el parámetro -id es obligatorio para loss.")
+		}
+		commands.SimulateSystemLoss(*id)
+
 	case "listdisks":
 		listCmd := flag.NewFlagSet("listdisks", flag.ContinueOnError)
 		path := listCmd.String("path", "/home/josepirir/Calificacion_MIA/Discos", "directorio que contiene discos")
